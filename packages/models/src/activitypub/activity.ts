@@ -33,7 +33,9 @@ export type Activity =
   ActivityReject |
   ActivityView |
   ActivityDislike |
-  ActivityFlag
+  ActivityFlag |
+  ActivityApproveReply |
+  ActivityRejectReply
 
 export type ActivityType =
   'Create' |
@@ -47,7 +49,9 @@ export type ActivityType =
   'Reject' |
   'View' |
   'Dislike' |
-  'Flag'
+  'Flag' |
+  'ApproveReply' |
+  'RejectReply'
 
 export interface ActivityAudience {
   to: string[]
@@ -89,6 +93,18 @@ export interface ActivityAccept extends BaseActivity {
   object: ActivityFollow
 }
 
+export interface ActivityApproveReply extends BaseActivity {
+  type: 'ApproveReply'
+  object: string
+  inReplyTo: string
+}
+
+export interface ActivityRejectReply extends BaseActivity {
+  type: 'RejectReply'
+  object: string
+  inReplyTo: string
+}
+
 export interface ActivityReject extends BaseActivity {
   type: 'Reject'
   object: ActivityFollow
@@ -116,6 +132,11 @@ export interface ActivityView extends BaseActivity {
 
   // If sending a "viewer" event
   expires?: string
+  result?: {
+    type: 'InteractionCounter'
+    interactionType: 'WatchAction'
+    userInteractionCount: number
+  }
 }
 
 export interface ActivityDislike extends BaseActivity {

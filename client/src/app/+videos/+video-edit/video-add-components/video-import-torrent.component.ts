@@ -1,14 +1,30 @@
-import { switchMap } from 'rxjs'
+import { NgIf } from '@angular/common'
 import { AfterViewInit, Component, ElementRef, EventEmitter, OnInit, Output, ViewChild } from '@angular/core'
+import { FormsModule, ReactiveFormsModule } from '@angular/forms'
 import { Router } from '@angular/router'
 import { AuthService, CanComponentDeactivate, HooksService, Notifier, ServerService } from '@app/core'
 import { scrollToTop } from '@app/helpers'
-import { FormReactiveService } from '@app/shared/shared-forms'
-import { VideoCaptionService, VideoChapterService, VideoEdit, VideoImportService, VideoService } from '@app/shared/shared-main'
+import { FormReactiveService } from '@app/shared/shared-forms/form-reactive.service'
+import { AlertComponent } from '@app/shared/shared-main/common/alert.component'
+import { VideoCaptionService } from '@app/shared/shared-main/video-caption/video-caption.service'
+import { VideoChapterService } from '@app/shared/shared-main/video/video-chapter.service'
+import { VideoEdit } from '@app/shared/shared-main/video/video-edit.model'
+import { VideoImportService } from '@app/shared/shared-main/video/video-import.service'
+import { VideoService } from '@app/shared/shared-main/video/video.service'
+import { NgbTooltip } from '@ng-bootstrap/ng-bootstrap'
 import { LoadingBarService } from '@ngx-loading-bar/core'
-import { logger } from '@root-helpers/logger'
 import { PeerTubeProblemDocument, ServerErrorCode, VideoUpdate } from '@peertube/peertube-models'
+import { logger } from '@root-helpers/logger'
+import { switchMap } from 'rxjs'
+import { SelectChannelComponent } from '../../../shared/shared-forms/select/select-channel.component'
+import { SelectOptionsComponent } from '../../../shared/shared-forms/select/select-options.component'
+import { GlobalIconComponent } from '../../../shared/shared-icons/global-icon.component'
+import { ButtonComponent } from '../../../shared/shared-main/buttons/button.component'
+import { HelpComponent } from '../../../shared/shared-main/buttons/help.component'
+import { PeerTubeTemplateDirective } from '../../../shared/shared-main/common/peertube-template.directive'
 import { hydrateFormFromVideo } from '../shared/video-edit-utils'
+import { VideoEditComponent } from '../shared/video-edit.component'
+import { DragDropDirective } from './drag-drop.directive'
 import { VideoSend } from './video-send'
 
 @Component({
@@ -18,6 +34,22 @@ import { VideoSend } from './video-send'
     '../shared/video-edit.component.scss',
     './video-import-torrent.component.scss',
     './video-send.scss'
+  ],
+  standalone: true,
+  imports: [
+    NgIf,
+    DragDropDirective,
+    GlobalIconComponent,
+    NgbTooltip,
+    HelpComponent,
+    PeerTubeTemplateDirective,
+    FormsModule,
+    SelectChannelComponent,
+    SelectOptionsComponent,
+    ReactiveFormsModule,
+    VideoEditComponent,
+    ButtonComponent,
+    AlertComponent
   ]
 })
 export class VideoImportTorrentComponent extends VideoSend implements OnInit, AfterViewInit, CanComponentDeactivate {

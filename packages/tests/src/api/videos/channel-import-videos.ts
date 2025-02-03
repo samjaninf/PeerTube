@@ -1,8 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-expressions,@typescript-eslint/require-await */
 
-import { expect } from 'chai'
-import { FIXTURE_URLS } from '@tests/shared/tests.js'
-import { areHttpImportTestsDisabled } from '@peertube/peertube-node-utils'
+import { areHttpImportTestsDisabled, areYoutubeImportTestsDisabled } from '@peertube/peertube-node-utils'
 import {
   createSingleServer,
   getServerImportConfig,
@@ -11,9 +9,12 @@ import {
   setDefaultVideoChannel,
   waitJobs
 } from '@peertube/peertube-server-commands'
+import { FIXTURE_URLS } from '@tests/shared/fixture-urls.js'
+import { expect } from 'chai'
 
 describe('Test videos import in a channel', function () {
   if (areHttpImportTestsDisabled()) return
+  if (areYoutubeImportTestsDisabled()) return
 
   function runSuite (mode: 'youtube-dl' | 'yt-dlp') {
 
@@ -42,7 +43,7 @@ describe('Test videos import in a channel', function () {
       })
 
       it('These imports should not have a sync id', async function () {
-        const { total, data } = await server.imports.getMyVideoImports()
+        const { total, data } = await server.videoImports.getMyVideoImports()
 
         expect(total).to.equal(2)
         expect(data).to.have.lengthOf(2)
@@ -83,7 +84,7 @@ describe('Test videos import in a channel', function () {
       })
 
       it('These imports should have a sync id', async function () {
-        const { total, data } = await server.imports.getMyVideoImports()
+        const { total, data } = await server.videoImports.getMyVideoImports()
 
         expect(total).to.equal(4)
         expect(data).to.have.lengthOf(4)
@@ -98,7 +99,7 @@ describe('Test videos import in a channel', function () {
       })
 
       it('Should be able to filter imports by this sync id', async function () {
-        const { total, data } = await server.imports.getMyVideoImports({ videoChannelSyncId: server.store.videoChannelSync.id })
+        const { total, data } = await server.videoImports.getMyVideoImports({ videoChannelSyncId: server.store.videoChannelSync.id })
 
         expect(total).to.equal(2)
         expect(data).to.have.lengthOf(2)

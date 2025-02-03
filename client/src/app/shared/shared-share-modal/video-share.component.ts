@@ -1,12 +1,31 @@
+import { NgClass, NgFor, NgIf } from '@angular/common'
 import { Component, ElementRef, Input, ViewChild } from '@angular/core'
+import { FormsModule } from '@angular/forms'
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser'
+import { RouterLink } from '@angular/router'
 import { HooksService, ServerService } from '@app/core'
-import { VideoDetails } from '@app/shared/shared-main'
-import { VideoPlaylist } from '@app/shared/shared-video-playlist'
-import { NgbModal } from '@ng-bootstrap/ng-bootstrap'
-import { buildVideoOrPlaylistEmbed } from '@root-helpers/video'
+import { VideoDetails } from '@app/shared/shared-main/video/video-details.model'
+import {
+  NgbCollapse,
+  NgbModal,
+  NgbNav,
+  NgbNavContent,
+  NgbNavItem,
+  NgbNavLink,
+  NgbNavLinkBase,
+  NgbNavOutlet
+} from '@ng-bootstrap/ng-bootstrap'
 import { buildPlaylistLink, buildVideoLink, decoratePlaylistLink, decorateVideoLink } from '@peertube/peertube-core-utils'
 import { VideoCaption, VideoPlaylistPrivacy, VideoPrivacy } from '@peertube/peertube-models'
+import { buildVideoOrPlaylistEmbed } from '@root-helpers/video'
+import { QRCodeModule } from 'angularx-qrcode'
+import { InputTextComponent } from '../shared-forms/input-text.component'
+import { PeertubeCheckboxComponent } from '../shared-forms/peertube-checkbox.component'
+import { TimestampInputComponent } from '../shared-forms/timestamp-input.component'
+import { GlobalIconComponent } from '../shared-icons/global-icon.component'
+import { AlertComponent } from '../shared-main/common/alert.component'
+import { PluginPlaceholderComponent } from '../shared-main/plugins/plugin-placeholder.component'
+import { VideoPlaylist } from '../shared-video-playlist/video-playlist.model'
 
 type Customizations = {
   startAtCheckbox: boolean
@@ -39,7 +58,29 @@ type TabId = 'url' | 'qrcode' | 'embed'
 @Component({
   selector: 'my-video-share',
   templateUrl: './video-share.component.html',
-  styleUrls: [ './video-share.component.scss' ]
+  styleUrls: [ './video-share.component.scss' ],
+  standalone: true,
+  imports: [
+    GlobalIconComponent,
+    NgIf,
+    RouterLink,
+    NgbNav,
+    NgbNavItem,
+    NgbNavLink,
+    NgbNavLinkBase,
+    NgbNavContent,
+    InputTextComponent,
+    QRCodeModule,
+    NgbNavOutlet,
+    PeertubeCheckboxComponent,
+    FormsModule,
+    PluginPlaceholderComponent,
+    TimestampInputComponent,
+    NgClass,
+    NgFor,
+    NgbCollapse,
+    AlertComponent
+  ]
 })
 export class VideoShareComponent {
   @ViewChild('modal', { static: true }) modal: ElementRef
@@ -158,7 +199,7 @@ export class VideoShareComponent {
     const { responsive } = options
     return this.hooks.wrapFun(
       buildVideoOrPlaylistEmbed,
-      { embedUrl: await this.getVideoEmbedUrl(), embedTitle: this.video.name, responsive },
+      { embedUrl: await this.getVideoEmbedUrl(), embedTitle: this.video.name, responsive, aspectRatio: this.video.aspectRatio },
       'video-watch',
       'filter:share.video-embed-code.build.params',
       'filter:share.video-embed-code.build.result'
@@ -193,7 +234,12 @@ export class VideoShareComponent {
     const { responsive } = options
     return this.hooks.wrapFun(
       buildVideoOrPlaylistEmbed,
-      { embedUrl: await this.getPlaylistEmbedUrl(), embedTitle: this.playlist.displayName, responsive },
+      {
+        embedUrl: await this.getPlaylistEmbedUrl(),
+        embedTitle: this.playlist.displayName,
+        responsive,
+        aspectRatio: this.video?.aspectRatio
+      },
       'video-watch',
       'filter:share.video-playlist-embed-code.build.params',
       'filter:share.video-playlist-embed-code.build.result'

@@ -1,5 +1,7 @@
 name: Nightly
 
+permissions: {}
+
 on:
   schedule:
     - cron: '0 3 * * *'
@@ -12,13 +14,13 @@ jobs:
     steps:
       -
         name: Checkout develop
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: develop
 
       - uses: './.github/actions/reusable-prepare-peertube-build'
         with:
-          node-version: '16.x'
+          node-version: '20.x'
 
       - name: Build
         run: npm run nightly

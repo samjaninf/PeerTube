@@ -3,12 +3,15 @@
 @use '_mixins' as *;
 
 @mixin build-channel-img-size ($video-img-width) {
-  $image-size: min(130px, $video-img-width);
-  $margin-size: math.div(($video-img-width - $image-size), 2); // So we have the same width than the video miniature
+  $image-size: min(120px, $video-img-width);
+  $margin-size: math.div(($video-img-width - $image-size), 2); // So we have the same width as the video miniature
 
-  @include actor-avatar-size($image-size);
+  width: $image-size;
+  height: $image-size;
+  min-height: $image-size;
+  min-width: $image-size;
 
-  margin: 0 $margin-size 0 $margin-size;
+  margin: 0 calc($margin-size + 1rem) 0 $margin-size;
 }
 
 .search-result {
@@ -35,20 +38,12 @@
         font-weight: $font-semibold;
       }
     }
-
-    .results-filter-button {
-      cursor: pointer;
-
-      .icon.icon-filter {
-        @include icon(20px);
-        @include margin-right(5px);
-
-        position: relative;
-        top: -1px;
-        background-image: url('../../assets/images/feather/filter.svg');
-      }
-    }
   }
+}
+
+.filter-button my-global-icon {
+  @include global-icon-size(20px);
+  @include margin-right(0.5rem);
 }
 
 .entry {
@@ -57,34 +52,36 @@
   max-width: 800px;
 }
 
+.video-channel {
+  my-actor-avatar {
+    @include build-channel-img-size($video-thumbnail-width);
+  }
+}
+
 .video-channel-info {
   flex-grow: 1;
-  margin: 0 10px;
   width: fit-content;
 }
 
 .video-channel-names {
-  @include disable-default-a-behaviour;
-
   display: flex;
   align-items: baseline;
-  color: pvar(--mainForegroundColor);
+  color: pvar(--fg);
   width: fit-content;
+  flex-wrap: wrap;
+
+  @include disable-default-a-behaviour;
 }
 
 .video-channel-display-name {
   font-weight: $font-semibold;
-  font-size: $video-miniature-row-name-font-size;
 }
 
 .video-channel-name {
-  @include margin-left(5px);
-
-  font-size: $video-miniature-row-info-font-size;
-  color: pvar(--greyForegroundColor);
+  color: pvar(--fg-300);
 }
 
-// Use the same breakpoints than in video-miniature
+// Use the same breakpoints as in video-miniature
 @include on-small-main-col {
   .video-channel {
     display: grid;
@@ -92,10 +89,10 @@
     grid-template-rows: auto auto;
 
     my-actor-avatar {
-      @include build-channel-img-size($video-thumbnail-medium-width);
-
       grid-column: 1;
       grid-row: 1 / -1;
+
+      @include build-channel-img-size($video-thumbnail-medium-width);
     }
   }
 
@@ -127,10 +124,10 @@
   }
 
   .video-channel-display-name {
-    font-size: $video-miniature-row-mobile-name-font-size;
+    font-size: $miniature-fs-mobile-big;
   }
 
   .video-channel-name {
-    font-size: $video-miniature-row-mobile-info-font-size;
+    font-size: $miniature-fs-mobile-medium;
   }
 }

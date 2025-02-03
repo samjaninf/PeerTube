@@ -1,15 +1,15 @@
-import { ChildProcess, fork } from 'child_process'
-import { copy } from 'fs-extra/esm'
-import { join } from 'path'
 import { randomInt } from '@peertube/peertube-core-utils'
 import { Video, VideoChannel, VideoChannelSync, VideoCreateResult, VideoDetails } from '@peertube/peertube-models'
 import { parallelTests, root } from '@peertube/peertube-node-utils'
+import { ChildProcess, fork } from 'child_process'
+import { copy } from 'fs-extra/esm'
+import { join } from 'path'
 import { BulkCommand } from '../bulk/index.js'
 import { CLICommand } from '../cli/index.js'
 import { CustomPagesCommand } from '../custom-pages/index.js'
 import { FeedCommand } from '../feeds/index.js'
 import { LogsCommand } from '../logs/index.js'
-import { AbusesCommand } from '../moderation/index.js'
+import { AbusesCommand, AutomaticTagsCommand, WatchedWordsCommand } from '../moderation/index.js'
 import { OverviewsCommand } from '../overviews/index.js'
 import { RunnerJobsCommand, RunnerRegistrationTokensCommand, RunnersCommand } from '../runners/index.js'
 import { SearchCommand } from '../search/index.js'
@@ -22,28 +22,30 @@ import {
   RegistrationsCommand,
   SubscriptionsCommand,
   TwoFactorCommand,
+  UserExportsCommand,
+  UserImportsCommand,
   UsersCommand
 } from '../users/index.js'
 import {
   BlacklistCommand,
   CaptionsCommand,
   ChangeOwnershipCommand,
-  ChannelsCommand,
   ChannelSyncsCommand,
+  ChannelsCommand,
   ChaptersCommand,
   CommentsCommand,
   HistoryCommand,
-  ImportsCommand,
   LiveCommand,
   PlaylistsCommand,
   ServicesCommand,
   StoryboardCommand,
   StreamingPlaylistsCommand,
+  VideoImportsCommand,
   VideoPasswordsCommand,
-  VideosCommand,
   VideoStatsCommand,
   VideoStudioCommand,
   VideoTokenCommand,
+  VideosCommand,
   ViewsCommand
 } from '../videos/index.js'
 import { ConfigCommand } from './config-command.js'
@@ -56,8 +58,10 @@ import { PluginsCommand } from './plugins-command.js'
 import { RedundancyCommand } from './redundancy-command.js'
 import { ServersCommand } from './servers-command.js'
 import { StatsCommand } from './stats-command.js'
+import merge from 'lodash-es/merge.js'
 
 export type RunServerOptions = {
+  autoEnableImportProxy?: boolean
   hideLogs?: boolean
   nodeArgs?: string[]
   peertubeArgs?: string[]
@@ -90,7 +94,6 @@ export class PeerTubeServer {
     user?: {
       username: string
       password: string
-      email?: string
     }
 
     channel?: VideoChannel
@@ -134,7 +137,7 @@ export class PeerTubeServer {
   changeOwnership?: ChangeOwnershipCommand
   playlists?: PlaylistsCommand
   history?: HistoryCommand
-  imports?: ImportsCommand
+  videoImports?: VideoImportsCommand
   channelSyncs?: ChannelSyncsCommand
   streamingPlaylists?: StreamingPlaylistsCommand
   channels?: ChannelsCommand
@@ -155,9 +158,15 @@ export class PeerTubeServer {
   storyboard?: StoryboardCommand
   chapters?: ChaptersCommand
 
+  userImports?: UserImportsCommand
+  userExports?: UserExportsCommand
+
   runners?: RunnersCommand
   runnerRegistrationTokens?: RunnerRegistrationTokensCommand
   runnerJobs?: RunnerJobsCommand
+
+  watchedWordsLists?: WatchedWordsCommand
+  autoTags?: AutomaticTagsCommand
 
   constructor (options: { serverNumber: number } | { url: string }) {
     if ((options as any).url) {
@@ -233,10 +242,10 @@ export class PeerTubeServer {
 
     await this.assignCustomConfigFile()
 
-    const configOverride = this.buildConfigOverride()
+    let configOverride = this.buildConfigOverride(options)
 
     if (configOverrideArg !== undefined) {
-      Object.assign(configOverride, configOverrideArg)
+      configOverride = merge(configOverride, configOverrideArg)
     }
 
     // Share the environment
@@ -355,10 +364,16 @@ export class PeerTubeServer {
     this.customConfigFile = tmpConfigFile
   }
 
-  private buildConfigOverride () {
-    if (!this.parallel) return {}
+  private buildConfigOverride (options: RunServerOptions) {
+    const base = options.autoEnableImportProxy !== false && process.env.YOUTUBE_DL_PROXY
+      ? { import: { videos: { http: { proxies: [ process.env.YOUTUBE_DL_PROXY ] } } } }
+      : {}
+
+    if (!this.parallel) return base
 
     return {
+      ...base,
+
       listen: {
         port: this.port
       },
@@ -375,6 +390,7 @@ export class PeerTubeServer {
         avatars: this.getDirectoryPath('avatars') + '/',
         web_videos: this.getDirectoryPath('web-videos') + '/',
         streaming_playlists: this.getDirectoryPath('streaming-playlists') + '/',
+        original_video_files: this.getDirectoryPath('original-video-files') + '/',
         redundancy: this.getDirectoryPath('redundancy') + '/',
         logs: this.getDirectoryPath('logs') + '/',
         previews: this.getDirectoryPath('previews') + '/',
@@ -426,7 +442,7 @@ export class PeerTubeServer {
     this.changeOwnership = new ChangeOwnershipCommand(this)
     this.playlists = new PlaylistsCommand(this)
     this.history = new HistoryCommand(this)
-    this.imports = new ImportsCommand(this)
+    this.videoImports = new VideoImportsCommand(this)
     this.channelSyncs = new ChannelSyncsCommand(this)
     this.streamingPlaylists = new StreamingPlaylistsCommand(this)
     this.channels = new ChannelsCommand(this)
@@ -446,9 +462,15 @@ export class PeerTubeServer {
     this.storyboard = new StoryboardCommand(this)
     this.chapters = new ChaptersCommand(this)
 
+    this.userExports = new UserExportsCommand(this)
+    this.userImports = new UserImportsCommand(this)
+
     this.runners = new RunnersCommand(this)
     this.runnerRegistrationTokens = new RunnerRegistrationTokensCommand(this)
     this.runnerJobs = new RunnerJobsCommand(this)
     this.videoPasswords = new VideoPasswordsCommand(this)
+
+    this.watchedWordsLists = new WatchedWordsCommand(this)
+    this.autoTags = new AutomaticTagsCommand(this)
   }
 }

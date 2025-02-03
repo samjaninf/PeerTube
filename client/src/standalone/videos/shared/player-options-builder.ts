@@ -11,7 +11,7 @@ import {
   VideoState,
   VideoStreamingPlaylistType
 } from '@peertube/peertube-models'
-import { HLSOptions, PeerTubePlayerContructorOptions, PeerTubePlayerLoadOptions, PlayerMode, VideoJSCaption } from '../../../assets/player'
+import { HLSOptions, PeerTubePlayerConstructorOptions, PeerTubePlayerLoadOptions, PlayerMode, VideoJSCaption } from '../../../assets/player'
 import {
   getBoolOrDefault,
   getParamString,
@@ -27,6 +27,7 @@ import { PlayerHTML } from './player-html'
 import { PlaylistTracker } from './playlist-tracker'
 import { Translations } from './translations'
 import { VideoFetcher } from './video-fetcher'
+import { getBackendUrl } from './url'
 
 export class PlayerOptionsBuilder {
   private autoplay: boolean
@@ -48,6 +49,8 @@ export class PlayerOptionsBuilder {
   private p2pEnabled: boolean
   private bigPlayBackgroundColor: string
   private foregroundColor: string
+
+  private waitPasswordFromEmbedAPI = false
 
   private mode: PlayerMode
   private scope = 'peertube'
@@ -106,17 +109,15 @@ export class PlayerOptionsBuilder {
     return this.scope
   }
 
+  mustWaitPasswordFromEmbedAPI () {
+    return this.waitPasswordFromEmbedAPI
+  }
+
   // ---------------------------------------------------------------------------
 
-  loadParams (config: HTMLServerConfig, video: VideoDetails) {
+  loadCommonParams () {
     try {
       const params = new URL(window.location.toString()).searchParams
-
-      this.autoplay = getParamToggle(params, 'autoplay', false)
-      // Disable auto play on live videos that are not streamed
-      if (video.state.id === VideoState.LIVE_ENDED || video.state.id === VideoState.WAITING_FOR_LIVE) {
-        this.autoplay = false
-      }
 
       this.controls = getParamToggle(params, 'controls', true)
       this.controlBar = getParamToggle(params, 'controlBar', true)
@@ -125,9 +126,9 @@ export class PlayerOptionsBuilder {
       this.loop = getParamToggle(params, 'loop', false)
       this.title = getParamToggle(params, 'title', true)
       this.enableApi = getParamToggle(params, 'api', this.enableApi)
+      this.waitPasswordFromEmbedAPI = getParamToggle(params, 'waitPasswordFromEmbedAPI', this.waitPasswordFromEmbedAPI)
       this.warningTitle = getParamToggle(params, 'warningTitle', true)
       this.peertubeLink = getParamToggle(params, 'peertubeLink', true)
-      this.p2pEnabled = getParamToggle(params, 'p2p', this.isP2PEnabled(config, video))
 
       this.scope = getParamString(params, 'scope', this.scope)
       this.subtitle = getParamString(params, 'subtitle')
@@ -137,6 +138,22 @@ export class PlayerOptionsBuilder {
 
       this.bigPlayBackgroundColor = getParamString(params, 'bigPlayBackgroundColor')
       this.foregroundColor = getParamString(params, 'foregroundColor')
+    } catch (err) {
+      logger.error('Cannot get params from URL.', err)
+    }
+  }
+
+  loadVideoParams (config: HTMLServerConfig, video: VideoDetails) {
+    try {
+      const params = new URL(window.location.toString()).searchParams
+
+      this.autoplay = getParamToggle(params, 'autoplay', false)
+      // Disable auto play on live videos that are not streamed
+      if (video.state.id === VideoState.LIVE_ENDED || video.state.id === VideoState.WAITING_FOR_LIVE) {
+        this.autoplay = false
+      }
+
+      this.p2pEnabled = getParamToggle(params, 'p2p', this.isP2PEnabled(config, video))
 
       const modeParam = getParamString(params, 'mode')
 
@@ -157,7 +174,7 @@ export class PlayerOptionsBuilder {
   getPlayerConstructorOptions (options: {
     serverConfig: HTMLServerConfig
     authorizationHeader: () => string
-  }): PeerTubePlayerContructorOptions {
+  }): PeerTubePlayerConstructorOptions {
     const { serverConfig, authorizationHeader } = options
 
     return {
@@ -170,12 +187,17 @@ export class PlayerOptionsBuilder {
       playbackRate: this.playbackRate,
 
       inactivityTimeout: 2500,
-      videoViewIntervalMs: 5000,
-      metricsUrl: window.location.origin + '/api/v1/metrics/playback',
+
+      videoViewIntervalMs: serverConfig.views.videos.watchingInterval.anonymous,
+
+      metricsUrl: serverConfig.openTelemetry.metrics.enabled
+        ? getBackendUrl() + '/api/v1/metrics/playback'
+        : null,
+      metricsInterval: serverConfig.openTelemetry.metrics.playbackStatsInterval,
 
       authorizationHeader,
 
-      playerElement: () => this.playerHTML.getPlayerElement(),
+      playerElement: () => this.playerHTML.getInitVideoEl(),
       enableHotkeys: true,
 
       peertubeLink: () => this.peertubeLink,
@@ -183,7 +205,8 @@ export class PlayerOptionsBuilder {
 
       theaterButton: false,
 
-      serverUrl: window.location.origin,
+      serverUrl: getBackendUrl(),
+      stunServers: serverConfig.webrtc.stunServers,
       language: navigator.language,
 
       pluginsManager: this.peertubePlugin.getPluginsManager(),
@@ -269,10 +292,11 @@ export class PlayerOptionsBuilder {
       videoUUID: video.uuid,
 
       duration: video.duration,
+      videoRatio: video.aspectRatio,
 
-      poster: window.location.origin + video.previewPath,
+      poster: getBackendUrl() + video.previewPath,
 
-      embedUrl: window.location.origin + video.embedPath,
+      embedUrl: getBackendUrl() + video.embedPath,
       embedTitle: video.name,
 
       requiresUserAuth: videoRequiresUserAuth(video),
@@ -311,7 +335,7 @@ export class PlayerOptionsBuilder {
     if (!storyboards || storyboards.length === 0) return undefined
 
     return {
-      url: window.location.origin + storyboards[0].storyboardPath,
+      url: getBackendUrl() + storyboards[0].storyboardPath,
       height: storyboards[0].spriteHeight,
       width: storyboards[0].spriteWidth,
       interval: storyboards[0].spriteDuration
@@ -403,7 +427,8 @@ export class PlayerOptionsBuilder {
       return data.map((c: VideoCaption) => ({
         label: peertubeTranslate(c.language.label, translations),
         language: c.language.id,
-        src: window.location.origin + c.captionPath
+        automaticallyGenerated: c.automaticallyGenerated,
+        src: getBackendUrl() + c.captionPath
       }))
     }
 
@@ -420,7 +445,7 @@ export class PlayerOptionsBuilder {
       : undefined
 
     const description = this.hasWarningTitle() && this.hasP2PEnabled()
-      ? '<span class="text">' + peertubeTranslate('Watching this video may reveal your IP address to others.') + '</span>'
+      ? peertubeTranslate('Watching this video may reveal your IP address to others.')
       : undefined
 
     if (!title && !description) return

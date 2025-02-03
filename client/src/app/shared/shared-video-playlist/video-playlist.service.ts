@@ -1,11 +1,10 @@
-import * as debug from 'debug'
+import debug from 'debug'
 import { merge, Observable, of, ReplaySubject, Subject } from 'rxjs'
 import { catchError, filter, map, share, switchMap, tap } from 'rxjs/operators'
 import { HttpClient, HttpContext, HttpParams } from '@angular/common/http'
 import { Injectable } from '@angular/core'
 import { AuthService, AuthUser, ComponentPaginationLight, RestExtractor, RestService, ServerService } from '@app/core'
 import { buildBulkObservable, objectToFormData } from '@app/helpers'
-import { Account, AccountService, VideoChannel, VideoChannelService } from '@app/shared/shared-main'
 import { NGX_LOADING_BAR_IGNORED } from '@ngx-loading-bar/http-client'
 import {
   CachedVideoExistInPlaylist,
@@ -24,6 +23,10 @@ import {
 import { environment } from '../../../environments/environment'
 import { VideoPlaylistElement } from './video-playlist-element.model'
 import { VideoPlaylist } from './video-playlist.model'
+import { VideoChannel } from '../shared-main/channel/video-channel.model'
+import { VideoChannelService } from '../shared-main/channel/video-channel.service'
+import { AccountService } from '../shared-main/account/account.service'
+import { Account } from '../shared-main/account/account.model'
 
 const debugLogger = debug('peertube:playlists:VideoPlaylistService')
 
@@ -55,7 +58,7 @@ export class VideoPlaylistService {
   ) {
     this.videoExistsInPlaylistObservable = merge(
       buildBulkObservable({
-        time: 500,
+        time: 200,
         bulkGet: (videoIds: number[]) => {
           // We added a delay to the request, so ensure the user is still logged in
           if (this.auth.isLoggedIn()) {

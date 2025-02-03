@@ -1,7 +1,10 @@
 import { Directive, ElementRef, Input, OnInit, Renderer2 } from '@angular/core'
 import { PluginSelectorId } from '@peertube/peertube-models'
 
-@Directive({ selector: '[myPluginSelector]' })
+@Directive({
+  selector: '[myPluginSelector]',
+  standalone: true
+})
 export class PluginSelectorDirective implements OnInit {
   @Input() pluginSelectorId: PluginSelectorId
 
@@ -13,6 +16,8 @@ export class PluginSelectorDirective implements OnInit {
   }
 
   ngOnInit () {
+    if (!this.pluginSelectorId) return
+
     const id = this.hostElement.nativeElement.getAttribute('id')
     if (id) throw new Error('Cannot set id on element that already has an id')
 

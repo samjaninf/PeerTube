@@ -1,15 +1,38 @@
-import { SortMeta } from 'primeng/api'
+import { NgClass, NgIf } from '@angular/common'
 import { Component, OnInit } from '@angular/core'
+import { RouterLink } from '@angular/router'
 import { ConfirmService, Notifier, RestPagination, RestTable } from '@app/core'
 import { formatICU } from '@app/helpers'
-import { DropdownAction } from '@app/shared/shared-main'
+import { NgbTooltip } from '@ng-bootstrap/ng-bootstrap'
 import { RunnerJob, RunnerJobState } from '@peertube/peertube-models'
+import { SharedModule, SortMeta } from 'primeng/api'
+import { TableModule } from 'primeng/table'
+import { AdvancedInputFilter, AdvancedInputFilterComponent } from '../../../../shared/shared-forms/advanced-input-filter.component'
+import { GlobalIconComponent } from '../../../../shared/shared-icons/global-icon.component'
+import { AutoColspanDirective } from '../../../../shared/shared-main/common/auto-colspan.directive'
+import { ActionDropdownComponent, DropdownAction } from '../../../../shared/shared-main/buttons/action-dropdown.component'
+import { ButtonComponent } from '../../../../shared/shared-main/buttons/button.component'
+import { TableExpanderIconComponent } from '../../../../shared/shared-tables/table-expander-icon.component'
 import { RunnerJobFormatted, RunnerService } from '../runner.service'
-import { AdvancedInputFilter } from '@app/shared/shared-forms'
 
 @Component({
   selector: 'my-runner-job-list',
-  templateUrl: './runner-job-list.component.html'
+  templateUrl: './runner-job-list.component.html',
+  standalone: true,
+  imports: [
+    GlobalIconComponent,
+    RouterLink,
+    TableModule,
+    SharedModule,
+    NgbTooltip,
+    NgIf,
+    ActionDropdownComponent,
+    AdvancedInputFilterComponent,
+    ButtonComponent,
+    TableExpanderIconComponent,
+    NgClass,
+    AutoColspanDirective
+  ]
 })
 export class RunnerJobListComponent extends RestTable <RunnerJob> implements OnInit {
   runnerJobs: RunnerJobFormatted[] = []
@@ -107,7 +130,13 @@ export class RunnerJobListComponent extends RestTable <RunnerJob> implements OnI
         .subscribe({
           next: () => {
             this.reloadData()
-            this.notifier.success($localize`Job(s) cancelled.`)
+
+            this.notifier.success(
+              formatICU(
+                $localize`{count, plural, =1 {Job cancelled} other {{count} jobs cancelled}}`,
+                { count: jobs.length }
+              )
+            )
           },
 
           error: err => this.notifier.error(err.message)
@@ -128,7 +157,13 @@ export class RunnerJobListComponent extends RestTable <RunnerJob> implements OnI
         .subscribe({
           next: () => {
             this.reloadData()
-            this.notifier.success($localize`Job(s) removed.`)
+
+            this.notifier.success(
+              formatICU(
+                $localize`{count, plural, =1 {Job removed} other {{count} jobs removed}}`,
+                { count: jobs.length }
+              )
+            )
           },
 
           error: err => this.notifier.error(err.message)
@@ -151,6 +186,14 @@ export class RunnerJobListComponent extends RestTable <RunnerJob> implements OnI
       default:
         return 'badge-info'
     }
+  }
+
+  getRandomRunnerNameBadge (value: string) {
+    return this.getRandomBadge('runner', value)
+  }
+
+  getRandomRunnerTypeBadge (value: string) {
+    return this.getRandomBadge('type', value)
   }
 
   protected reloadDataInternal () {

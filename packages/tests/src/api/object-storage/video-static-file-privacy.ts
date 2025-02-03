@@ -1,9 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-expressions,@typescript-eslint/require-await */
 
-import { expect } from 'chai'
-import { basename } from 'path'
 import { getAllFiles, getHLS } from '@peertube/peertube-core-utils'
-import { HttpStatusCode, LiveVideo, VideoDetails, VideoPrivacy } from '@peertube/peertube-models'
+import { HttpStatusCode, LiveVideo, VideoDetails, VideoPrivacy, VideoResolution } from '@peertube/peertube-models'
 import { areScalewayObjectStorageTestsDisabled } from '@peertube/peertube-node-utils'
 import {
   cleanupTests,
@@ -20,7 +18,9 @@ import {
 } from '@peertube/peertube-server-commands'
 import { expectStartWith } from '@tests/shared/checks.js'
 import { SQLCommand } from '@tests/shared/sql-command.js'
-import { checkVideoFileTokenReinjection } from '@tests/shared/streaming-playlists.js'
+import { checkPlaylistInfohash, checkVideoFileTokenReinjection } from '@tests/shared/streaming-playlists.js'
+import { expect } from 'chai'
+import { basename } from 'path'
 
 function extractFilenameFromUrl (url: string) {
   const parts = basename(url).split(':')
@@ -50,7 +50,13 @@ describe('Object storage for video static file privacy', function () {
     for (const file of getAllFiles(video)) {
       const internalFileUrl = await sqlCommand.getInternalFileUrl(file.id)
       expectStartWith(internalFileUrl, ObjectStorageCommand.getScalewayBaseUrl())
-      await makeRawRequest({ url: internalFileUrl, token: server.accessToken, expectedStatus: HttpStatusCode.FORBIDDEN_403 })
+
+      const { text } = await makeRawRequest({
+        url: internalFileUrl,
+        token: server.accessToken,
+        expectedStatus: HttpStatusCode.FORBIDDEN_403
+      })
+      expect(text).to.contain('AccessDenied')
     }
 
     const hls = getHLS(video)
@@ -68,6 +74,8 @@ describe('Object storage for video static file privacy', function () {
 
         await makeRawRequest({ url: file.fileUrl, token: server.accessToken, expectedStatus: HttpStatusCode.OK_200 })
       }
+
+      await checkPlaylistInfohash({ video, files: hls.files, sqlCommand })
     }
   }
 
@@ -292,7 +300,7 @@ describe('Object storage for video static file privacy', function () {
         server,
         videoUUID: privateVideoUUID,
         videoFileToken,
-        resolutions: [ 240, 720 ],
+        resolutions: [ VideoResolution.H_720P, VideoResolution.H_240P ],
         isLive: false
       })
     })
@@ -352,13 +360,18 @@ describe('Object storage for video static file privacy', function () {
 
         await makeRawRequest({ url, token: server.accessToken, expectedStatus: HttpStatusCode.OK_200 })
         await makeRawRequest({ url, query: { videoFileToken: fileToken }, expectedStatus: HttpStatusCode.OK_200 })
-        if (videoPassword) {
-          await makeRawRequest({ url, headers: { 'x-peertube-video-password': videoPassword }, expectedStatus: HttpStatusCode.OK_200 })
-        }
+
         await makeRawRequest({ url, token: userToken, expectedStatus: HttpStatusCode.FORBIDDEN_403 })
         await makeRawRequest({ url, expectedStatus: HttpStatusCode.FORBIDDEN_403 })
         await makeRawRequest({ url, query: { videoFileToken: unrelatedFileToken }, expectedStatus: HttpStatusCode.FORBIDDEN_403 })
+
         if (videoPassword) {
+          await makeRawRequest({
+            url,
+            headers: { 'x-peertube-video-password': videoPassword },
+            expectedStatus: HttpStatusCode.OK_200
+          })
+
           await makeRawRequest({
             url,
             headers: { 'x-peertube-video-password': 'incorrectPassword' },
@@ -478,7 +491,7 @@ describe('Object storage for video static file privacy', function () {
         server,
         videoUUID: permanentLiveId,
         videoFileToken,
-        resolutions: [ 720 ],
+        resolutions: [ VideoResolution.H_720P, VideoResolution.H_240P ],
         isLive: true
       })
 
@@ -500,8 +513,7 @@ describe('Object storage for video static file privacy', function () {
       await server.live.waitUntilWaiting({ videoId: permanentLiveId })
       await waitJobs([ server ])
 
-      const live = await server.videos.getWithToken({ id: permanentLiveId })
-      const replayFromList = await findExternalSavedVideo(server, live)
+      const replayFromList = await findExternalSavedVideo(server, permanentLiveId)
       const replay = await server.videos.getWithToken({ id: replayFromList.id })
 
       await checkReplay(replay)

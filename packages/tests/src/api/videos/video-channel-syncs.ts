@@ -1,8 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-expressions,@typescript-eslint/require-await */
 
-import { expect } from 'chai'
-import { areHttpImportTestsDisabled } from '@peertube/peertube-node-utils'
 import { VideoChannelSyncState, VideoInclude, VideoPrivacy } from '@peertube/peertube-models'
+import { areHttpImportTestsDisabled, areYoutubeImportTestsDisabled } from '@peertube/peertube-node-utils'
 import {
   cleanupTests,
   createMultipleServers,
@@ -14,11 +13,13 @@ import {
   setDefaultVideoChannel,
   waitJobs
 } from '@peertube/peertube-server-commands'
+import { FIXTURE_URLS } from '@tests/shared/fixture-urls.js'
 import { SQLCommand } from '@tests/shared/sql-command.js'
-import { FIXTURE_URLS } from '@tests/shared/tests.js'
+import { expect } from 'chai'
 
 describe('Test channel synchronizations', function () {
   if (areHttpImportTestsDisabled()) return
+  if (areYoutubeImportTestsDisabled()) return
 
   function runSuite (mode: 'youtube-dl' | 'yt-dlp') {
 
@@ -92,7 +93,7 @@ describe('Test channel synchronizations', function () {
         this.timeout(120_000)
 
         {
-          const { video } = await servers[0].imports.importVideo({
+          const { video } = await servers[0].videoImports.importVideo({
             attributes: {
               channelId: servers[0].store.channel.id,
               privacy: VideoPrivacy.PUBLIC,
@@ -210,7 +211,7 @@ describe('Test channel synchronizations', function () {
       })
 
       it('Should list imports of a channel synchronization', async function () {
-        const { total, data } = await servers[0].imports.getMyVideoImports({ videoChannelSyncId: rootChannelSyncId })
+        const { total, data } = await servers[0].videoImports.getMyVideoImports({ videoChannelSyncId: rootChannelSyncId })
 
         expect(total).to.equal(1)
         expect(data).to.have.lengthOf(1)

@@ -3,7 +3,7 @@
 import { expect } from 'chai'
 import { readdir } from 'fs/promises'
 import { basename } from 'path'
-import { FIXTURE_URLS } from '@tests/shared/tests.js'
+import { FIXTURE_URLS } from '@tests/shared/fixture-urls.js'
 import { areHttpImportTestsDisabled } from '@peertube/peertube-node-utils'
 import { HttpStatusCode, VideoPrivacy } from '@peertube/peertube-models'
 import {
@@ -22,10 +22,13 @@ import {
 async function checkStoryboard (options: {
   server: PeerTubeServer
   uuid: string
+  spriteHeight?: number
+  spriteWidth?: number
   tilesCount?: number
   minSize?: number
+  spriteDuration?: number
 }) {
-  const { server, uuid, tilesCount, minSize = 1000 } = options
+  const { server, uuid, tilesCount, spriteDuration = 1, spriteHeight = 108, spriteWidth = 192, minSize = 1000 } = options
 
   const { storyboards } = await server.storyboard.list({ id: uuid })
 
@@ -33,14 +36,14 @@ async function checkStoryboard (options: {
 
   const storyboard = storyboards[0]
 
-  expect(storyboard.spriteDuration).to.equal(1)
-  expect(storyboard.spriteHeight).to.equal(108)
-  expect(storyboard.spriteWidth).to.equal(192)
+  expect(storyboard.spriteDuration).to.equal(spriteDuration)
+  expect(storyboard.spriteHeight).to.equal(spriteHeight)
+  expect(storyboard.spriteWidth).to.equal(spriteWidth)
   expect(storyboard.storyboardPath).to.exist
 
   if (tilesCount) {
-    expect(storyboard.totalWidth).to.equal(192 * Math.min(tilesCount, 10))
-    expect(storyboard.totalHeight).to.equal(108 * Math.max((tilesCount / 10), 1))
+    expect(storyboard.totalWidth).to.equal(spriteWidth * Math.min(tilesCount, 11))
+    expect(storyboard.totalHeight).to.equal(spriteHeight * Math.max((tilesCount / 11), 1))
   }
 
   const { body } = await makeGetRequest({ url: server.url, path: storyboard.storyboardPath, expectedStatus: HttpStatusCode.OK_200 })
@@ -83,7 +86,7 @@ describe('Test video storyboard', function () {
     await waitJobs(servers)
 
     for (const server of servers) {
-      await checkStoryboard({ server, uuid, tilesCount: 100 })
+      await checkStoryboard({ server, uuid, spriteDuration: 2, spriteHeight: 154, tilesCount: 66 })
     }
   })
 
@@ -124,7 +127,7 @@ describe('Test video storyboard', function () {
     if (areHttpImportTestsDisabled()) return
 
     // 3s video
-    const { video } = await servers[0].imports.importVideo({
+    const { video } = await servers[0].videoImports.importVideo({
       attributes: {
         targetUrl: FIXTURE_URLS.goodVideo,
         channelId: servers[0].store.channel.id,
@@ -134,17 +137,17 @@ describe('Test video storyboard', function () {
     await waitJobs(servers)
 
     for (const server of servers) {
-      await checkStoryboard({ server, uuid: video.uuid, tilesCount: 3 })
+      await checkStoryboard({ server, uuid: video.uuid, spriteHeight: 144, tilesCount: 3 })
     }
   })
 
   it('Should generate a storyboard after torrent import', async function () {
-    this.timeout(120000)
+    this.timeout(240000)
 
     if (areHttpImportTestsDisabled()) return
 
     // 10s video
-    const { video } = await servers[0].imports.importVideo({
+    const { video } = await servers[0].videoImports.importVideo({
       attributes: {
         magnetUri: FIXTURE_URLS.magnet,
         channelId: servers[0].store.channel.id,
@@ -204,6 +207,27 @@ describe('Test video storyboard', function () {
     {
       const storyboads = await listFiles()
       expect(storyboads).to.not.include(storyboardName)
+    }
+  })
+
+  it('Should not generate storyboards if disabled by the admin', async function () {
+    this.timeout(60000)
+
+    await servers[0].config.updateExistingConfig({
+      newConfig: {
+        storyboards: {
+          enabled: false
+        }
+      }
+    })
+
+    const { uuid } = await servers[0].videos.quickUpload({ name: 'upload', fixture: 'video_short.webm' })
+    await waitJobs(servers)
+
+    for (const server of servers) {
+      const { storyboards } = await server.storyboard.list({ id: uuid })
+
+      expect(storyboards).to.have.lengthOf(0)
     }
   })
 

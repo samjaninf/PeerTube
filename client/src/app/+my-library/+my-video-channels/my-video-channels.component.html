@@ -1,22 +1,9 @@
-<h1>
-  <span class="text-nowrap me-2">
-    <my-global-icon iconName="channel" aria-hidden="true"></my-global-icon>
-    <ng-container i18n>My channels</ng-container>
-    <span *ngIf="totalItems" class="pt-badge badge-secondary">{{ totalItems }}</span>
-  </span>
-
-  <div>
-    <a routerLink="/my-library/video-channel-syncs" class="button-link">
-      <my-global-icon iconName="repeat" aria-hidden="true"></my-global-icon>
-      <ng-container i18n>My synchronizations</ng-container>
-    </a>
-  </div>
-</h1>
-
 <my-channels-setup-message [hideLink]="true"></my-channels-setup-message>
 
-<div class="video-channels-header d-flex justify-content-between gap-2">
+<div class="video-channels-header d-flex justify-content-between align-items-end gap-2 flex-wrap">
   <my-advanced-input-filter (search)="onSearch($event)"></my-advanced-input-filter>
+
+  <span *ngIf="pagination.totalItems" class="total-items">{{ getTotalTitle() }}</span>
 
   <a class="peertube-create-button" routerLink="/manage/create">
     <my-global-icon iconName="add" aria-hidden="true"></my-global-icon>
@@ -24,7 +11,7 @@
   </a>
 </div>
 
-<div class="no-results" i18n *ngIf="totalItems === 0">No channel found.</div>
+<div class="no-results" i18n *ngIf="this.pagination.totalItems === 0">No channel found.</div>
 
 <div class="video-channels" myInfiniteScroller (nearOfBottom)="onNearOfBottom()" [dataObservable]="onChannelDataSubject.asObservable()">
   <div *ngFor="let videoChannel of videoChannels; let i = index" class="video-channel">
@@ -43,14 +30,14 @@
         {videoChannel.followersCount, plural, =0 {No subscribers} =1 {1 subscriber} other {{{ videoChannel.followersCount }} subscribers}}
       </a>
 
-      <div class="d-flex">
+      <div class="channel-videos">
         <span i18n>{videoChannel.videosCount, plural, =0 {No videos} =1 {1 video} other {{{ videoChannel.videosCount }} videos}}</span>
         <span class="mx-1">·</span>
         <span i18n>{videoChannel.totalViews, plural, =0 {No views} =1 {1 view} other {{{ videoChannel.totalViews | myNumberFormatter }} views}}</span>
       </div>
 
       <div class="video-channel-buttons">
-        <my-edit-button label [ptRouterLink]="[ '/manage/update', videoChannel.nameWithHost ]"></my-edit-button>
+        <my-edit-button label [ptRouterLink]="[ '/my-library/video-channels/update', videoChannel.nameWithHost ]"></my-edit-button>
         <my-delete-button label (click)="deleteVideoChannel(videoChannel)"></my-delete-button>
       </div>
 
@@ -61,6 +48,7 @@
               *ngIf="chartOptions && videoChannelsChartData && videoChannelsChartData[i]"
               width="40vw" height="100px"
               type="line" [data]="videoChannelsChartData[i]" [options]="chartOptions"
+              [ariaLabel]="getChartAriaLabel(videoChannelsChartData[i])"
             ></p-chart>
           </ng-template>
         </div>

@@ -3,7 +3,7 @@ import { VideoStateType } from '../videos/index.js'
 import { VideoStudioTaskCut } from '../videos/studio/index.js'
 import { SendEmailOptions } from './emailer.model.js'
 
-export type JobState = 'active' | 'completed' | 'failed' | 'waiting' | 'delayed' | 'paused' | 'waiting-children'
+export type JobState = 'active' | 'completed' | 'failed' | 'waiting' | 'delayed' | 'paused' | 'waiting-children' | 'prioritized'
 
 export type JobType =
   | 'activitypub-cleaner'
@@ -20,6 +20,7 @@ export type JobType =
   | 'transcoding-job-builder'
   | 'manage-video-torrent'
   | 'move-to-object-storage'
+  | 'move-to-file-system'
   | 'notify'
   | 'video-channel-import'
   | 'video-file-import'
@@ -30,6 +31,9 @@ export type JobType =
   | 'video-transcoding'
   | 'videos-views-stats'
   | 'generate-video-storyboard'
+  | 'create-user-export'
+  | 'import-user-archive'
+  | 'video-transcription'
 
 export interface Job {
   id: number | string
@@ -57,7 +61,7 @@ export type ActivitypubHttpBroadcastPayload = {
 
 export type ActivitypubFollowPayload = {
   followerActorId: number
-  name: string
+  name?: string
   host: string
   isAutoFollow?: boolean
   assertIsChannel?: boolean
@@ -98,11 +102,16 @@ export interface VideoImportYoutubeDLPayload {
   type: VideoImportYoutubeDLPayloadType
   videoImportId: number
 
+  generateTranscription: boolean
+
   fileExt?: string
 }
 
 export interface VideoImportTorrentPayload {
   type: VideoImportTorrentPayloadType
+
+  generateTranscription: boolean
+
   videoImportId: number
 }
 
@@ -138,6 +147,7 @@ export type ManageVideoTorrentPayload =
 
 interface BaseTranscodingPayload {
   videoUUID: string
+  hasChildren?: boolean
   isNewVideo?: boolean
 }
 
@@ -146,6 +156,8 @@ export interface HLSTranscodingPayload extends BaseTranscodingPayload {
   resolution: number
   fps: number
   copyCodecs: boolean
+
+  separatedAudio: boolean
 
   deleteWebVideoFiles: boolean
 }
@@ -161,16 +173,12 @@ export interface MergeAudioTranscodingPayload extends BaseTranscodingPayload {
 
   resolution: number
   fps: number
-
-  hasChildren: boolean
 }
 
 export interface OptimizeTranscodingPayload extends BaseTranscodingPayload {
   type: 'optimize-to-web-video'
 
   quickTranscode: boolean
-
-  hasChildren: boolean
 }
 
 export type VideoTranscodingPayload =
@@ -196,7 +204,7 @@ export interface DeleteResumableUploadMetaFilePayload {
   filepath: string
 }
 
-export interface MoveObjectStoragePayload {
+export interface MoveStoragePayload {
   videoUUID: string
   isNewVideo: boolean
   previousVideoState: VideoStateType
@@ -268,7 +276,7 @@ export type NotifyPayload =
 
 export interface FederateVideoPayload {
   videoUUID: string
-  isNewVideo: boolean
+  isNewVideoForFederation: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -300,4 +308,22 @@ export interface TranscodingJobBuilderPayload {
 export interface GenerateStoryboardPayload {
   videoUUID: string
   federate: boolean
+}
+
+// ---------------------------------------------------------------------------
+
+export interface CreateUserExportPayload {
+  userExportId: number
+}
+
+// ---------------------------------------------------------------------------
+
+export interface ImportUserArchivePayload {
+  userImportId: number
+}
+
+// ---------------------------------------------------------------------------
+
+export interface VideoTranscriptionPayload {
+  videoUUID: string
 }

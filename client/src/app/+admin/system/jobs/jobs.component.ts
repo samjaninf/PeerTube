@@ -1,24 +1,53 @@
-import { SortMeta } from 'primeng/api'
+import { NgClass, NgFor, NgIf } from '@angular/common'
 import { Component, OnInit } from '@angular/core'
+import { FormsModule } from '@angular/forms'
 import { Notifier, RestPagination, RestTable } from '@app/core'
-import { escapeHTML } from '@peertube/peertube-core-utils'
+import { SelectOptionsComponent } from '@app/shared/shared-forms/select/select-options.component'
+import { GlobalIconComponent } from '@app/shared/shared-icons/global-icon.component'
+import { AutoColspanDirective } from '@app/shared/shared-main/common/auto-colspan.directive'
+import { NgbTooltip } from '@ng-bootstrap/ng-bootstrap'
 import { Job, JobState, JobType } from '@peertube/peertube-models'
 import { peertubeLocalStorage } from '@root-helpers/peertube-web-storage'
+import { SharedModule, SortMeta } from 'primeng/api'
+import { TableModule } from 'primeng/table'
+import { SelectOptionsItem } from 'src/types'
 import { JobStateClient } from '../../../../types/job-state-client.type'
 import { JobTypeClient } from '../../../../types/job-type-client.type'
+import { ButtonComponent } from '../../../shared/shared-main/buttons/button.component'
+import { TableExpanderIconComponent } from '../../../shared/shared-tables/table-expander-icon.component'
 import { JobService } from './job.service'
 
 @Component({
   selector: 'my-jobs',
   templateUrl: './jobs.component.html',
-  styleUrls: [ './jobs.component.scss' ]
+  styleUrls: [ './jobs.component.scss' ],
+  standalone: true,
+  imports: [
+    FormsModule,
+    NgFor,
+    NgClass,
+    ButtonComponent,
+    TableModule,
+    SharedModule,
+    NgIf,
+    NgbTooltip,
+    TableExpanderIconComponent,
+    GlobalIconComponent,
+    SelectOptionsComponent,
+    AutoColspanDirective
+  ]
 })
 export class JobsComponent extends RestTable implements OnInit {
-  private static LOCAL_STORAGE_STATE = 'jobs-list-state'
-  private static LOCAL_STORAGE_TYPE = 'jobs-list-type'
+  private static LS_STATE = 'jobs-list-state'
+  private static LS_TYPE = 'jobs-list-type'
 
-  jobState?: JobStateClient | 'all'
-  jobStates: JobStateClient[] = [ 'active', 'completed', 'failed', 'waiting', 'delayed' ]
+  jobState: JobStateClient = 'all'
+  jobStates: JobStateClient[] = [ 'all', 'active', 'completed', 'failed', 'waiting', 'delayed' ]
+  jobStateItems: SelectOptionsItem[] = this.jobStates.map(s => ({
+    id: s,
+    label: s,
+    classes: this.getJobStateClasses(s)
+  }))
 
   jobType: JobTypeClient = 'all'
   jobTypes: JobTypeClient[] = [
@@ -33,11 +62,15 @@ export class JobsComponent extends RestTable implements OnInit {
     'activitypub-refresher',
     'actor-keys',
     'after-video-channel-import',
+    'create-user-export',
     'email',
     'federate-video',
+    'generate-video-storyboard',
     'manage-video-torrent',
+    'move-to-file-system',
     'move-to-object-storage',
     'notify',
+    'transcoding-job-builder',
     'video-channel-import',
     'video-file-import',
     'video-import',
@@ -45,8 +78,10 @@ export class JobsComponent extends RestTable implements OnInit {
     'video-redundancy',
     'video-studio-edition',
     'video-transcoding',
+    'video-transcription',
     'videos-views-stats'
   ]
+  jobTypeItems: SelectOptionsItem[] = this.jobTypes.map(i => ({ id: i, label: i }))
 
   jobs: Job[] = []
   totalRecords: number
@@ -69,27 +104,21 @@ export class JobsComponent extends RestTable implements OnInit {
     return 'JobsComponent'
   }
 
-  getJobStateClass (state: JobStateClient) {
+  getJobStateClasses (state: JobStateClient) {
     switch (state) {
       case 'active':
-        return 'badge-blue'
+        return [ 'pt-badge', 'badge-blue' ]
       case 'completed':
-        return 'badge-green'
+        return [ 'pt-badge', 'badge-green' ]
       case 'delayed':
-        return 'badge-brown'
+        return [ 'pt-badge', 'badge-brown' ]
       case 'failed':
-        return 'badge-red'
+        return [ 'pt-badge', 'badge-red' ]
       case 'waiting':
-        return 'badge-yellow'
+        return [ 'pt-badge', 'badge-yellow' ]
     }
-  }
 
-  getColspan () {
-    if (this.jobState === 'all' && this.hasGlobalProgress()) return 7
-
-    if (this.jobState === 'all' || this.hasGlobalProgress()) return 6
-
-    return 5
+    return []
   }
 
   onJobStateOrTypeChanged () {
@@ -120,6 +149,10 @@ export class JobsComponent extends RestTable implements OnInit {
     this.reloadData()
   }
 
+  getRandomJobTypeBadge (type: string) {
+    return this.getRandomBadge('type', type)
+  }
+
   protected reloadDataInternal () {
     let jobState = this.jobState as JobState
     if (this.jobState === 'all') jobState = null
@@ -142,18 +175,15 @@ export class JobsComponent extends RestTable implements OnInit {
   }
 
   private loadJobStateAndType () {
-    const state = peertubeLocalStorage.getItem(JobsComponent.LOCAL_STORAGE_STATE)
+    const state = peertubeLocalStorage.getItem(JobsComponent.LS_STATE)
+    if (state && state !== 'undefined') this.jobState = state as JobState
 
-    // FIXME: We use <ng-option> that doesn't escape HTML
-    // https://github.com/ng-select/ng-select/issues/1363
-    if (state) this.jobState = escapeHTML(state) as JobState
-
-    const type = peertubeLocalStorage.getItem(JobsComponent.LOCAL_STORAGE_TYPE)
-    if (type) this.jobType = type as JobType
+    const jobType = peertubeLocalStorage.getItem(JobsComponent.LS_TYPE)
+    if (jobType && jobType !== 'undefined') this.jobType = jobType as JobType
   }
 
   private saveJobStateAndType () {
-    peertubeLocalStorage.setItem(JobsComponent.LOCAL_STORAGE_STATE, this.jobState)
-    peertubeLocalStorage.setItem(JobsComponent.LOCAL_STORAGE_TYPE, this.jobType)
+    peertubeLocalStorage.setItem(JobsComponent.LS_STATE, this.jobState)
+    peertubeLocalStorage.setItem(JobsComponent.LS_TYPE, this.jobType)
   }
 }

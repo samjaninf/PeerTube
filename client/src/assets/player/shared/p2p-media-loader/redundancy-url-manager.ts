@@ -1,4 +1,3 @@
-import { basename, dirname } from 'path'
 import { logger } from '@root-helpers/logger'
 
 class RedundancyUrlManager {
@@ -8,11 +7,14 @@ class RedundancyUrlManager {
   }
 
   removeBySegmentUrl (segmentUrl: string) {
-    logger.info(`Removing redundancy of segment URL ${segmentUrl}.`)
-
-    const baseUrl = dirname(segmentUrl)
+    const baseUrl = getBaseUrl(segmentUrl)
+    const oldLength = baseUrl.length
 
     this.baseUrls = this.baseUrls.filter(u => u !== baseUrl && u !== baseUrl + '/')
+
+    if (oldLength !== this.baseUrls.length) {
+      logger.info(`Removed redundancy of segment URL ${segmentUrl}.`)
+    }
   }
 
   buildUrl (url: string) {
@@ -24,7 +26,7 @@ class RedundancyUrlManager {
     const newBaseUrl = this.baseUrls[i]
     const slashPart = newBaseUrl.endsWith('/') ? '' : '/'
 
-    return newBaseUrl + slashPart + basename(url)
+    return newBaseUrl + slashPart + getFilename(url)
   }
 
   countBaseUrls () {
@@ -40,4 +42,17 @@ class RedundancyUrlManager {
 
 export {
   RedundancyUrlManager
+}
+
+// ---------------------------------------------------------------------------
+
+function getFilename (url: string) {
+  return url.split('/').pop()
+}
+
+function getBaseUrl (url: string) {
+  const baseUrl = url.split('/')
+  baseUrl.pop()
+
+  return baseUrl.join('/')
 }

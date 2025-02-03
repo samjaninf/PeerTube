@@ -5,9 +5,9 @@
 @use '_miniature' as *;
 
 $video-default-height: 66vh;
-$video-theater-height: calc(100vh - #{$header-height} - #{$theater-bottom-space});
+$video-max-height: calc(100vh - #{pvar(--header-height)} - #{$theater-bottom-space});
 
-@mixin playlist-below-player {
+@mixin player-widget-below-player {
   width: 100% !important;
   height: auto !important;
   max-height: 300px !important;
@@ -36,15 +36,15 @@ $video-theater-height: calc(100vh - #{$header-height} - #{$theater-bottom-space}
 
     #videojs-wrapper {
       width: 100%;
-      height: $video-theater-height;
+      height: $video-max-height;
     }
 
     ::ng-deep .video-js {
-      --player-height: #{$video-theater-height};
+      --co-player-height: #{$video-max-height};
     }
 
-    my-video-watch-playlist ::ng-deep .playlist {
-      @include playlist-below-player;
+    .player-widget-component ::ng-deep .widget-root {
+      @include player-widget-below-player;
     }
   }
 }
@@ -53,6 +53,7 @@ $video-theater-height: calc(100vh - #{$header-height} - #{$theater-bottom-space}
   background-color: #000;
   display: flex;
   justify-content: center;
+  border-radius:5px;
 
   #videojs-wrapper {
     display: flex;
@@ -62,16 +63,16 @@ $video-theater-height: calc(100vh - #{$header-height} - #{$theater-bottom-space}
   }
 
   ::ng-deep .video-js {
-    --player-height: #{$video-default-height};
-    --player-portrait-mode: 0;
+    --co-player-height: #{$video-default-height};
+    --co-player-portrait-mode: 0;
     // Default player ratio, redefined by the player to automatically adapt player size
-    --player-ratio: #{math.div(16, 9)};
+    --co-player-ratio: #{math.div(16, 9)};
 
     width: 100%;
-    height: var(--player-height);
+    height: var(--co-player-height);
 
     // Can be recalculated by the player depending on video ratio
-    max-width: calc(var(--player-height) * var(--player-ratio));
+    max-width: calc(var(--co-player-height) * var(--co-player-ratio));
 
     // VideoJS create an inner video player
     video {
@@ -131,14 +132,13 @@ $video-theater-height: calc(100vh - #{$header-height} - #{$theater-bottom-space}
 }
 
 .video-info-name {
-  @include peertube-word-wrap;
-
-  @include margin-right(30px);
-
   min-height: 40px; // Align with the action buttons
   font-size: 27px;
   font-weight: $font-semibold;
   flex-grow: 1;
+
+  @include peertube-word-wrap;
+  @include margin-right(30px);
 }
 
 .video-info-first-row-bottom {
@@ -149,21 +149,21 @@ $video-theater-height: calc(100vh - #{$header-height} - #{$theater-bottom-space}
 }
 
 .video-info-date-views {
-  @include margin-right(10px);
-
   margin-bottom: 10px;
   align-self: start;
   font-size: 14px;
+
+  @include margin-right(10px);
 }
 
 .video-info-channel {
   font-weight: $font-semibold;
 
   a {
+    color: pvar(--fg);
+
     @include disable-default-a-behaviour;
     @include peertube-word-wrap;
-
-    color: pvar(--mainForegroundColor);
 
     &:hover {
       opacity: 0.8;
@@ -196,29 +196,29 @@ my-subscribe-button {
 }
 
 my-video-attributes {
-  @include margin-left($video-watch-info-margin-left);
-
   display: block;
   margin-bottom: 15px;
+
+  @include margin-left($video-watch-info-margin-left);
 }
 
 my-action-buttons {
-  @include margin-left(auto);
-  @include margin-right(0);
-
   display: block;
   margin-top: 0;
   margin-bottom: 10px;
 
   align-items: start;
   width: max-content;
+
+  @include margin-left(auto);
+  @include margin-right(0);
 }
 
 my-recommended-videos {
-  @include padding-left(15px);
-
   display: block;
   min-width: 250px;
+
+  @include padding-left(15px);
 }
 
 my-video-comments {
@@ -233,8 +233,8 @@ my-video-comments {
     flex-direction: column;
     justify-content: center;
 
-    my-video-watch-playlist ::ng-deep .playlist {
-      @include playlist-below-player;
+    .player-widget-component ::ng-deep .widget-root {
+      @include player-widget-below-player;
     }
   }
 
@@ -254,11 +254,10 @@ my-video-comments {
 
     .remote-server-down,
     ::ng-deep .video-js {
-      --player-portrait-mode: 1;
+      --co-player-portrait-mode: 1;
+      --co-player-height: calc(100vw / var(--co-player-ratio)) !important;
 
-      // Can be recalculated by the player depending on video ratio
-      height: calc(100vw / var(--player-ratio)) !important;
-      max-height: $video-theater-height;
+      max-height: calc(100vh - #{pvar(--header-height)} - #{$player-portrait-bottom-space});
     }
   }
 
@@ -277,7 +276,11 @@ my-video-comments {
   }
 }
 
-@media screen and (max-width: 450px) {
+@media screen and (max-width: $mobile-view) {
+  .margin-content.player-margin-content {
+    margin: 0 !important;
+  }
+
   .video-info-name {
     font-size: 18px;
   }

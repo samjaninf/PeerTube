@@ -3,7 +3,6 @@ import { catchError, map, switchMap } from 'rxjs/operators'
 import { HttpClient, HttpParams } from '@angular/common/http'
 import { Injectable } from '@angular/core'
 import { ComponentPaginationLight, RestExtractor, RestPagination, RestService } from '@app/core'
-import { Video, VideoChannel, VideoChannelService, VideoService } from '@app/shared/shared-main'
 import {
   ResultList,
   Video as VideoServerModel,
@@ -11,8 +10,13 @@ import {
   VideoPlaylist as VideoPlaylistServerModel
 } from '@peertube/peertube-models'
 import { environment } from '../../../environments/environment'
-import { VideoPlaylist, VideoPlaylistService } from '../shared-video-playlist'
 import { AdvancedSearch } from './advanced-search.model'
+import { Video } from '../shared-main/video/video.model'
+import { VideoChannel } from '../shared-main/channel/video-channel.model'
+import { VideoService } from '../shared-main/video/video.service'
+import { VideoChannelService } from '../shared-main/channel/video-channel.service'
+import { VideoPlaylist } from '../shared-video-playlist/video-playlist.model'
+import { VideoPlaylistService } from '../shared-video-playlist/video-playlist.service'
 
 @Injectable()
 export class SearchService {
@@ -31,8 +35,9 @@ export class SearchService {
     componentPagination?: ComponentPaginationLight
     advancedSearch?: AdvancedSearch
     uuids?: string[]
+    skipCount?: boolean
   }): Observable<ResultList<Video>> {
-    const { search, uuids, componentPagination, advancedSearch } = parameters
+    const { search, uuids, componentPagination, advancedSearch, skipCount } = parameters
 
     if (advancedSearch?.resultType !== undefined && advancedSearch.resultType !== 'videos') {
       return of({ total: 0, data: [] })
@@ -49,6 +54,7 @@ export class SearchService {
     params = this.restService.addRestGetParams(params, pagination)
 
     if (search) params = params.append('search', search)
+    if (skipCount === true) params = params.append('skipCount', true)
     if (uuids) params = this.restService.addArrayParams(params, 'uuids', uuids)
 
     if (advancedSearch) {

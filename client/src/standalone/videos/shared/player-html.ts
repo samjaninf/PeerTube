@@ -5,36 +5,32 @@ import { Translations } from './translations'
 export class PlayerHTML {
   private readonly wrapperElement: HTMLElement
 
-  private playerElement: HTMLVideoElement
+  private initVideoEl: HTMLVideoElement
   private informationElement: HTMLDivElement
 
   constructor (private readonly videoWrapperId: string) {
     this.wrapperElement = document.getElementById(this.videoWrapperId)
   }
 
-  getPlayerElement () {
-    return this.playerElement
+  getInitVideoEl () {
+    return this.initVideoEl
   }
 
-  setPlayerElement (playerElement: HTMLVideoElement) {
-    this.playerElement = playerElement
+  setInitVideoEl (playerElement: HTMLVideoElement) {
+    this.initVideoEl = playerElement
   }
 
-  removePlayerElement () {
-    this.playerElement = null
-  }
-
-  addPlayerElementToDOM () {
-    this.wrapperElement.appendChild(this.playerElement)
+  addInitVideoElToDOM () {
+    this.wrapperElement.appendChild(this.initVideoEl)
   }
 
   displayError (text: string, translations: Translations) {
     logger.error(text)
 
     // Remove video element
-    if (this.playerElement) {
-      this.removeElement(this.playerElement)
-      this.playerElement = undefined
+    if (this.initVideoEl) {
+      this.removeElement(this.initVideoEl)
+      this.initVideoEl = undefined
     }
 
     const translatedText = peertubeTranslate(text, translations)
@@ -69,14 +65,14 @@ export class PlayerHTML {
       videoPasswordBlock.style.display = 'flex'
 
       const videoPasswordTitle = document.getElementById('video-password-title')
-      videoPasswordTitle.innerHTML = translatedTitle
+      videoPasswordTitle.innerText = translatedTitle
 
       const videoPasswordMessage = document.getElementById('video-password-content')
-      videoPasswordMessage.innerHTML = translatedMessage
+      videoPasswordMessage.innerText = translatedMessage
 
       if (incorrectPassword) {
         const videoPasswordError = document.getElementById('video-password-error')
-        videoPasswordError.innerHTML = peertubeTranslate('Incorrect password, please enter a correct password', translations)
+        videoPasswordError.innerText = peertubeTranslate('Incorrect password, please enter a correct password', translations)
         videoPasswordError.style.transform = 'scale(1.2)'
 
         setTimeout(() => {
@@ -85,7 +81,7 @@ export class PlayerHTML {
       }
 
       const videoPasswordSubmitButton = document.getElementById('video-password-submit')
-      videoPasswordSubmitButton.innerHTML = peertubeTranslate('Watch Video', translations)
+      videoPasswordSubmitButton.innerText = peertubeTranslate('Watch Video', translations)
 
       const videoPasswordInput = document.getElementById('video-password-input') as HTMLInputElement
       videoPasswordInput.placeholder = peertubeTranslate('Password', translations)

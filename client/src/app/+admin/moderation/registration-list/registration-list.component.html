@@ -1,8 +1,3 @@
-<h1>
-  <my-global-icon iconName="user" aria-hidden="true"></my-global-icon>
-  <ng-container i18n>Registration requests</ng-container>
-</h1>
-
 <p-table
   [value]="registrations" [paginator]="totalRecords > 0" [totalRecords]="totalRecords" [rows]="rowsPerPage" [first]="pagination.start"
   [rowsPerPageOptions]="rowsPerPageOptions" [sortField]="sort.field" [sortOrder]="sort.order" dataKey="id"
@@ -14,7 +9,7 @@
     <div class="caption">
       <div class="left-buttons">
         <my-action-dropdown
-          *ngIf="isInSelectionMode()" i18n-label label="Batch actions" theme="orange"
+          *ngIf="isInSelectionMode()" i18n-label label="Batch actions" theme="primary"
           [actions]="bulkActions" [entry]="selectedRows"
         >
         </my-action-dropdown>
@@ -28,18 +23,22 @@
 
   <ng-template pTemplate="header">
     <tr> <!-- header -->
-      <th style="width: 40px">
+      <th scope="col" style="width: 40px">
         <p-tableHeaderCheckbox ariaLabel="Select all rows" i18n-ariaLabel></p-tableHeaderCheckbox>
       </th>
-      <th style="width: 40px;"></th>
-      <th style="width: 150px;"></th>
-      <th i18n>Account</th>
-      <th i18n>Email</th>
-      <th i18n>Channel</th>
-      <th i18n>Registration reason</th>
-      <th i18n pSortableColumn="state" style="width: 80px;">State <p-sortIcon field="state"></p-sortIcon></th>
-      <th i18n>Moderation response</th>
-      <th style="width: 150px;" i18n pSortableColumn="createdAt">Requested on <p-sortIcon field="createdAt"></p-sortIcon></th>
+      <th scope="col" style="width: 40px;">
+        <span i18n class="visually-hidden">More information</span>
+      </th>
+      <th scope="col" style="width: 150px;">
+        <span i18n class="visually-hidden">Actions</span>
+      </th>
+      <th scope="col" i18n>Account</th>
+      <th scope="col" i18n>Email</th>
+      <th scope="col" i18n>Channel</th>
+      <th scope="col" i18n>Registration reason</th>
+      <th scope="col" i18n [ngbTooltip]="sortTooltip" container="body" pSortableColumn="state" style="width: 80px;">State <p-sortIcon field="state"></p-sortIcon></th>
+      <th scope="col" i18n>Moderation response</th>
+      <th scope="col" style="width: 150px;" i18n [ngbTooltip]="sortTooltip" container="body" pSortableColumn="createdAt">Requested on <p-sortIcon field="createdAt"></p-sortIcon></th>
     </tr>
   </ng-template>
 
@@ -49,14 +48,14 @@
         <p-tableCheckbox [value]="registration" ariaLabel="Select this row" i18n-ariaLabel></p-tableCheckbox>
       </td>
 
-      <td class="expand-cell" [pRowToggler]="registration">
-        <my-table-expander-icon [expanded]="expanded"></my-table-expander-icon>
+      <td class="expand-cell">
+        <my-table-expander-icon [pRowToggler]="registration" [expanded]="expanded"></my-table-expander-icon>
       </td>
 
       <td class="action-cell">
         <my-action-dropdown
           [ngClass]="{ 'show': expanded }" placement="bottom-right top-right left auto" container="body"
-          i18n-label label="Actions" [actions]="registrationActions" [entry]="registration"
+          i18n-label label="Actions" [actions]="registrationActions" [entry]="registration" buttonSize="small"
         ></my-action-dropdown>
       </td>
 
@@ -70,7 +69,7 @@
       </td>
 
       <td>
-        <my-user-email-info [entry]="registration" [requiresEmailVerification]="requiresEmailVerification"></my-user-email-info>
+        <my-user-email-info [entry]="registration" [showEmailVerifyInformation]="requiresEmailVerification"></my-user-email-info>
       </td>
 
       <td>
@@ -87,15 +86,21 @@
       </td>
 
       <td class="c-hand abuse-states" [pRowToggler]="registration">
-        <my-global-icon *ngIf="isRegistrationAccepted(registration)" [title]="registration.state.label" iconName="tick"></my-global-icon>
-        <my-global-icon *ngIf="isRegistrationRejected(registration)" [title]="registration.state.label" iconName="cross"></my-global-icon>
+
+        <div *ngIf="isRegistrationAccepted(registration)" [title]="registration.state.label" class="pt-badge badge-success">
+          <my-global-icon iconName="tick"></my-global-icon>
+        </div>
+
+        <div *ngIf="isRegistrationRejected(registration)" [title]="registration.state.label" class="pt-badge badge-danger">
+          <my-global-icon iconName="cross"></my-global-icon>
+        </div>
       </td>
 
       <td container="body" placement="left auto" [ngbTooltip]="registration.moderationResponse">
         {{ registration.moderationResponse }}
       </td>
 
-      <td class="c-hand" [pRowToggler]="registration">{{ registration.createdAt | date: 'short'  }}</td>
+      <td class="c-hand" [pRowToggler]="registration">{{ registration.createdAt | ptDate: 'short'  }}</td>
     </tr>
   </ng-template>
 

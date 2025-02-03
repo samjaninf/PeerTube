@@ -1,16 +1,16 @@
 /* eslint-disable @typescript-eslint/no-unused-expressions,@typescript-eslint/require-await */
 
-import { expect } from 'chai'
-import { basename, join } from 'path'
 import { getAllFiles, wait } from '@peertube/peertube-core-utils'
-import { ffprobePromise, getVideoStream } from '@peertube/peertube-ffmpeg'
+import { ffprobePromise } from '@peertube/peertube-ffmpeg'
 import {
   HttpStatusCode,
   LiveVideo,
   LiveVideoCreate,
   LiveVideoLatencyMode,
+  VideoCommentPolicy,
   VideoDetails,
   VideoPrivacy,
+  VideoResolution,
   VideoState,
   VideoStreamingPlaylistType
 } from '@peertube/peertube-models'
@@ -34,6 +34,8 @@ import {
 import { testImageGeneratedByFFmpeg } from '@tests/shared/checks.js'
 import { testLiveVideoResolutions } from '@tests/shared/live.js'
 import { SQLCommand } from '@tests/shared/sql-command.js'
+import { expect } from 'chai'
+import { basename, join } from 'path'
 
 describe('Test live', function () {
   let servers: PeerTubeServer[] = []
@@ -48,11 +50,13 @@ describe('Test live', function () {
     await setAccessTokensToServers(servers)
     await setDefaultVideoChannel(servers)
 
-    await servers[0].config.updateCustomSubConfig({
+    await servers[0].config.enableMinimumTranscoding()
+    await servers[0].config.updateExistingConfig({
       newConfig: {
         live: {
           enabled: true,
           allowReplay: true,
+          maxUserLives: -1,
           latencySetting: {
             enabled: true
           },
@@ -86,7 +90,7 @@ describe('Test live', function () {
         waitTranscoding: false,
         name: 'my super live',
         tags: [ 'tag1', 'tag2' ],
-        commentsEnabled: false,
+        commentsPolicy: VideoCommentPolicy.DISABLED,
         downloadEnabled: false,
         saveReplay: true,
         replaySettings: { privacy: VideoPrivacy.PUBLIC },
@@ -114,6 +118,8 @@ describe('Test live', function () {
         expect(video.channel.host).to.equal(servers[0].store.channel.host)
 
         expect(video.isLive).to.be.true
+
+        expect(video.aspectRatio).to.not.exist
 
         expect(video.nsfw).to.be.false
         expect(video.waitTranscoding).to.be.false
@@ -286,15 +292,16 @@ describe('Test live', function () {
       rtmpUrl = 'rtmp://' + servers[0].hostname + ':' + servers[0].rtmpPort + ''
     })
 
-    async function createLiveWrapper () {
-      const liveAttributes = {
-        name: 'user live',
-        channelId: servers[0].store.channel.id,
-        privacy: VideoPrivacy.PUBLIC,
-        saveReplay: false
-      }
-
-      const { uuid } = await commands[0].create({ fields: liveAttributes })
+    async function createLiveWrapper (token?: string, channelId?: number) {
+      const { uuid } = await commands[0].create({
+        token,
+        fields: {
+          name: 'user live',
+          channelId: channelId ?? servers[0].store.channel.id,
+          privacy: VideoPrivacy.PUBLIC,
+          saveReplay: false
+        }
+      })
 
       const live = await commands[0].get({ videoId: uuid })
       const video = await servers[0].videos.get({ id: uuid })
@@ -349,6 +356,18 @@ describe('Test live', function () {
       await testFfmpegStreamError(command, true)
     })
 
+    it('Should not allow a stream on if the owner has been blocked', async function () {
+      this.timeout(60000)
+
+      const { token, userId, userChannelId } = await servers[0].users.generate('user1')
+      liveVideo = await createLiveWrapper(token, userChannelId)
+
+      await servers[0].users.banUser({ userId })
+
+      const command = sendRTMPStream({ rtmpBaseUrl: rtmpUrl + '/live', streamKey: liveVideo.streamKey })
+      await testFfmpegStreamError(command, true)
+    })
+
     it('Should not allow a stream on a live that was deleted', async function () {
       this.timeout(60000)
 
@@ -381,38 +400,22 @@ describe('Test live', function () {
     }
 
     function updateConf (resolutions: number[]) {
-      return servers[0].config.updateCustomSubConfig({
-        newConfig: {
-          live: {
-            enabled: true,
-            allowReplay: true,
-            maxDuration: -1,
-            transcoding: {
-              enabled: true,
-              resolutions: {
-                '144p': resolutions.includes(144),
-                '240p': resolutions.includes(240),
-                '360p': resolutions.includes(360),
-                '480p': resolutions.includes(480),
-                '720p': resolutions.includes(720),
-                '1080p': resolutions.includes(1080),
-                '2160p': resolutions.includes(2160)
-              }
-            }
-          }
-        }
+      return servers[0].config.enableLive({
+        allowReplay: true,
+        resolutions,
+        transcoding: true,
+        maxDuration: -1
       })
     }
 
     before(async function () {
-      await updateConf([])
-
       sqlCommandServer1 = new SQLCommand(servers[0])
     })
 
     it('Should enable transcoding without additional resolutions', async function () {
       this.timeout(120000)
 
+      await updateConf([])
       liveVideoId = await createLiveWrapper(false)
 
       const ffmpegCommand = await commands[0].sendRTMPStreamInVideo({ videoId: liveVideoId })
@@ -427,18 +430,6 @@ describe('Test live', function () {
         resolutions: [ 720 ],
         transcoded: true
       })
-
-      await stopFfmpeg(ffmpegCommand)
-    })
-
-    it('Should transcode audio only RTMP stream', async function () {
-      this.timeout(120000)
-
-      liveVideoId = await createLiveWrapper(false)
-
-      const ffmpegCommand = await commands[0].sendRTMPStreamInVideo({ videoId: liveVideoId, fixtureName: 'video_short_no_audio.mp4' })
-      await waitUntilLivePublishedOnAllServers(servers, liveVideoId)
-      await waitJobs(servers)
 
       await stopFfmpeg(ffmpegCommand)
     })
@@ -523,15 +514,17 @@ describe('Test live', function () {
       await waitUntilLivePublishedOnAllServers(servers, liveVideoId)
 
       const maxBitrateLimits = {
-        720: 6500 * 1000, // 60FPS
-        360: 1250 * 1000,
-        240: 700 * 1000
+        720: 6350 * 1000, // 60FPS
+        360: 1100 * 1000,
+        240: 600 * 1000,
+        0: 170 * 1000
       }
 
       const minBitrateLimits = {
-        720: 4800 * 1000,
-        360: 1000 * 1000,
-        240: 550 * 1000
+        720: 4650 * 1000,
+        360: 850 * 1000,
+        240: 400 * 1000,
+        0: 100 * 1000
       }
 
       for (const server of servers) {
@@ -539,6 +532,7 @@ describe('Test live', function () {
 
         expect(video.state.id).to.equal(VideoState.PUBLISHED)
         expect(video.duration).to.be.greaterThan(1)
+        expect(video.aspectRatio).to.equal(1.7778)
         expect(video.files).to.have.lengthOf(0)
 
         const hlsPlaylist = video.streamingPlaylists.find(s => s.type === VideoStreamingPlaylistType.HLS)
@@ -549,9 +543,10 @@ describe('Test live', function () {
         expect(basename(hlsPlaylist.playlistUrl)).to.not.equal('master.m3u8')
         expect(basename(hlsPlaylist.segmentsSha256Url)).to.not.equal('segments-sha256.json')
 
-        expect(hlsPlaylist.files).to.have.lengthOf(resolutions.length)
+        const resolutionsAndAudio = [ VideoResolution.H_NOVIDEO, ...resolutions ]
+        expect(hlsPlaylist.files).to.have.lengthOf(resolutionsAndAudio.length)
 
-        for (const resolution of resolutions) {
+        for (const resolution of resolutionsAndAudio) {
           const file = hlsPlaylist.files.find(f => f.resolution.id === resolution)
 
           expect(file).to.exist
@@ -559,6 +554,8 @@ describe('Test live', function () {
 
           if (resolution >= 720) {
             expect(file.fps).to.be.approximately(60, 10)
+          } else if (resolution === VideoResolution.H_NOVIDEO) {
+            expect(file.fps).to.equal(0)
           } else {
             expect(file.fps).to.be.approximately(30, 3)
           }
@@ -569,10 +566,9 @@ describe('Test live', function () {
           const segmentPath = servers[0].servers.buildDirectory(join('streaming-playlists', 'hls', video.uuid, filename))
 
           const probe = await ffprobePromise(segmentPath)
-          const videoStream = await getVideoStream(segmentPath, probe)
 
-          expect(probe.format.bit_rate).to.be.below(maxBitrateLimits[videoStream.height])
-          expect(probe.format.bit_rate).to.be.at.least(minBitrateLimits[videoStream.height])
+          expect(probe.format.bit_rate).to.be.below(maxBitrateLimits[resolution])
+          expect(probe.format.bit_rate).to.be.at.least(minBitrateLimits[resolution])
 
           await makeRawRequest({ url: file.torrentUrl, expectedStatus: HttpStatusCode.OK_200 })
           await makeRawRequest({ url: file.fileUrl, expectedStatus: HttpStatusCode.OK_200 })
@@ -586,7 +582,7 @@ describe('Test live', function () {
       const resolutions = [ 240, 480 ]
       await updateConf(resolutions)
 
-      await servers[0].config.updateExistingSubConfig({
+      await servers[0].config.updateExistingConfig({
         newConfig: {
           live: {
             transcoding: {
@@ -621,11 +617,12 @@ describe('Test live', function () {
       const video = await servers[0].videos.get({ id: liveVideoId })
       const hlsFiles = video.streamingPlaylists[0].files
 
-      expect(video.files).to.have.lengthOf(0)
-      expect(hlsFiles).to.have.lengthOf(resolutions.length)
+      const resolutionsWithAudio = [ VideoResolution.H_NOVIDEO, ...resolutions ]
 
-      // eslint-disable-next-line @typescript-eslint/require-array-sort-compare
-      expect(getAllFiles(video).map(f => f.resolution.id).sort()).to.deep.equal(resolutions)
+      expect(video.files).to.have.lengthOf(0)
+      expect(hlsFiles).to.have.lengthOf(resolutionsWithAudio.length)
+
+      expect(getAllFiles(video).map(f => f.resolution.id)).to.have.members(resolutionsWithAudio)
     })
 
     it('Should only keep the original resolution if all resolutions are disabled', async function () {
@@ -658,9 +655,9 @@ describe('Test live', function () {
       const hlsFiles = video.streamingPlaylists[0].files
 
       expect(video.files).to.have.lengthOf(0)
-      expect(hlsFiles).to.have.lengthOf(1)
 
-      expect(hlsFiles[0].resolution.id).to.equal(720)
+      expect(hlsFiles).to.have.lengthOf(2)
+      expect(hlsFiles.map(f => f.resolution.id)).to.have.members([ VideoResolution.H_720P, VideoResolution.H_NOVIDEO ])
     })
 
     after(async function () {

@@ -1,21 +1,45 @@
+import { NgClass, NgFor, NgIf } from '@angular/common'
 import { Component, ElementRef, OnInit, ViewChild } from '@angular/core'
+import { FormsModule } from '@angular/forms'
 import { LocalStorageService, Notifier } from '@app/core'
+import { SelectOptionsComponent } from '@app/shared/shared-forms/select/select-options.component'
+import { PTDatePipe } from '@app/shared/shared-main/common/date.pipe'
+import { PeerTubeTemplateDirective } from '@app/shared/shared-main/common/peertube-template.directive'
 import { ServerLogLevel } from '@peertube/peertube-models'
+import { SelectTagsComponent } from '../../../shared/shared-forms/select/select-tags.component'
+import { ButtonComponent } from '../../../shared/shared-main/buttons/button.component'
+import { CopyButtonComponent } from '../../../shared/shared-main/buttons/copy-button.component'
 import { LogRow } from './log-row.model'
 import { LogsService } from './logs.service'
 
 @Component({
   templateUrl: './logs.component.html',
-  styleUrls: [ './logs.component.scss' ]
+  styleUrls: [ './logs.component.scss' ],
+  standalone: true,
+  imports: [
+    FormsModule,
+    NgFor,
+    NgIf,
+    NgClass,
+    SelectTagsComponent,
+    ButtonComponent,
+    PTDatePipe,
+    CopyButtonComponent,
+    SelectOptionsComponent,
+    PeerTubeTemplateDirective
+  ]
 })
 export class LogsComponent implements OnInit {
-  private static LOCAL_STORAGE_LOG_TYPE_CHOICE_KEY = 'admin-logs-log-type-choice'
+  private static LS_LOG_TYPE_CHOICE_KEY = 'admin-logs-log-type-choice'
 
   @ViewChild('logsElement', { static: true }) logsElement: ElementRef<HTMLElement>
+  @ViewChild('logsContent', { static: true }) logsContent: ElementRef<HTMLElement>
 
   loading = false
 
+  rawLogs: string
   logs: LogRow[] = []
+
   timeChoices: { id: string, label: string, dateFormat: string }[] = []
   levelChoices: { id: ServerLogLevel, label: string }[] = []
   logTypeChoices: { id: 'audit' | 'standard', label: string }[] = []
@@ -44,7 +68,7 @@ export class LogsComponent implements OnInit {
   refresh () {
     this.logs = []
 
-    this.localStorage.setItem(LogsComponent.LOCAL_STORAGE_LOG_TYPE_CHOICE_KEY, this.logType)
+    this.localStorage.setItem(LogsComponent.LS_LOG_TYPE_CHOICE_KEY, this.logType)
 
     this.load()
   }
@@ -64,6 +88,8 @@ export class LogsComponent implements OnInit {
     }).subscribe({
       next: logs => {
         this.logs = logs
+
+        this.rawLogs = this.logs.map(l => `${l.level} ${l.localeDate} ${l.message} ${l.meta}`).join('\n')
 
         setTimeout(() => {
           this.logsElement.nativeElement.scrollIntoView({ block: 'end', inline: 'nearest' })
@@ -148,7 +174,7 @@ export class LogsComponent implements OnInit {
   }
 
   private loadPreviousChoices () {
-    this.logType = this.localStorage.getItem(LogsComponent.LOCAL_STORAGE_LOG_TYPE_CHOICE_KEY)
+    this.logType = this.localStorage.getItem(LogsComponent.LS_LOG_TYPE_CHOICE_KEY)
 
     if (this.logType !== 'standard' && this.logType !== 'audit') this.logType = 'audit'
   }

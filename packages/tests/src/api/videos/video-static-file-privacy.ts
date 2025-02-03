@@ -1,9 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-expressions,@typescript-eslint/require-await */
 
-import { expect } from 'chai'
-import { decode } from 'magnet-uri'
 import { getAllFiles, wait } from '@peertube/peertube-core-utils'
-import { HttpStatusCode, HttpStatusCodeType, LiveVideo, VideoDetails, VideoPrivacy } from '@peertube/peertube-models'
+import { HttpStatusCode, HttpStatusCodeType, LiveVideo, VideoDetails, VideoPrivacy, VideoResolution } from '@peertube/peertube-models'
 import {
   cleanupTests,
   createSingleServer,
@@ -18,7 +16,8 @@ import {
 } from '@peertube/peertube-server-commands'
 import { expectStartWith } from '@tests/shared/checks.js'
 import { checkVideoFileTokenReinjection } from '@tests/shared/streaming-playlists.js'
-import { parseTorrentVideo } from '@tests/shared/webtorrent.js'
+import { magnetUriDecode, parseTorrentVideo } from '@tests/shared/webtorrent.js'
+import { expect } from 'chai'
 
 describe('Test video static file privacy', function () {
   let server: PeerTubeServer
@@ -48,7 +47,7 @@ describe('Test video static file privacy', function () {
           const torrent = await parseTorrentVideo(server, file)
           expect(torrent.urlList).to.have.lengthOf(0)
 
-          const magnet = decode(file.magnetUri)
+          const magnet = await magnetUriDecode(file.magnetUri)
           expect(magnet.urlList).to.have.lengthOf(0)
 
           await makeRawRequest({ url: file.fileUrl, token: server.accessToken, expectedStatus: HttpStatusCode.OK_200 })
@@ -74,7 +73,7 @@ describe('Test video static file privacy', function () {
           const torrent = await parseTorrentVideo(server, file)
           expect(torrent.urlList[0]).to.not.include('private')
 
-          const magnet = decode(file.magnetUri)
+          const magnet = await magnetUriDecode(file.magnetUri)
           expect(magnet.urlList[0]).to.not.include('private')
 
           await makeRawRequest({ url: file.fileUrl, expectedStatus: HttpStatusCode.OK_200 })
@@ -532,7 +531,7 @@ describe('Test video static file privacy', function () {
           server,
           videoUUID: permanentLiveId,
           videoFileToken,
-          resolutions: [ 720 ],
+          resolutions: [ VideoResolution.H_720P, VideoResolution.H_240P ],
           isLive: true
         })
       }
@@ -555,8 +554,7 @@ describe('Test video static file privacy', function () {
       await server.live.waitUntilWaiting({ videoId: permanentLiveId })
       await waitJobs([ server ])
 
-      const live = await server.videos.getWithToken({ id: permanentLiveId })
-      const replayFromList = await findExternalSavedVideo(server, live)
+      const replayFromList = await findExternalSavedVideo(server, permanentLiveId)
       const replay = await server.videos.getWithToken({ id: replayFromList.id })
 
       await checkReplay(replay)

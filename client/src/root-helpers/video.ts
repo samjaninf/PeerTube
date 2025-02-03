@@ -3,9 +3,10 @@ import { HTMLServerConfig, Video, VideoPrivacy, VideoPrivacyType } from '@peertu
 function buildVideoOrPlaylistEmbed (options: {
   embedUrl: string
   embedTitle: string
+  aspectRatio?: number
   responsive?: boolean
 }) {
-  const { embedUrl, embedTitle, responsive = false } = options
+  const { embedUrl, embedTitle, aspectRatio, responsive = false } = options
 
   const iframe = document.createElement('iframe')
 
@@ -15,13 +16,15 @@ function buildVideoOrPlaylistEmbed (options: {
   iframe.src = embedUrl
   iframe.frameBorder = '0'
   iframe.allowFullscreen = true
-  iframe.sandbox.add('allow-same-origin', 'allow-scripts', 'allow-popups')
+  iframe.sandbox.add('allow-same-origin', 'allow-scripts', 'allow-popups', 'allow-forms')
 
   if (responsive) {
     const wrapper = document.createElement('div')
 
     wrapper.style.position = 'relative'
-    wrapper.style.paddingTop = '56.25%'
+    wrapper.style.paddingTop = aspectRatio
+      ? (1 / aspectRatio * 100).toFixed(2) + '%'
+      : '56.25%'
 
     iframe.style.position = 'absolute'
     iframe.style.inset = '0'

@@ -1,18 +1,27 @@
-import { mergeMap } from 'rxjs'
-import { SelectChannelItem } from 'src/types'
+import { NgClass, NgIf } from '@angular/common'
 import { Component, OnInit } from '@angular/core'
+import { FormsModule, ReactiveFormsModule } from '@angular/forms'
 import { Router } from '@angular/router'
 import { AuthService, Notifier } from '@app/core'
 import { listUserChannelsForSelect } from '@app/helpers'
 import { VIDEO_CHANNEL_EXTERNAL_URL_VALIDATOR } from '@app/shared/form-validators/video-channel-validators'
-import { FormReactive, FormReactiveService } from '@app/shared/shared-forms'
-import { VideoChannelService, VideoChannelSyncService } from '@app/shared/shared-main'
+import { FormReactive } from '@app/shared/shared-forms/form-reactive'
+import { FormReactiveService } from '@app/shared/shared-forms/form-reactive.service'
+import { VideoChannelSyncService } from '@app/shared/shared-main/channel/video-channel-sync.service'
+import { VideoChannelService } from '@app/shared/shared-main/channel/video-channel.service'
+import { AlertComponent } from '@app/shared/shared-main/common/alert.component'
 import { VideoChannelSyncCreate } from '@peertube/peertube-models'
+import { mergeMap } from 'rxjs'
+import { SelectChannelItem } from 'src/types'
+import { SelectChannelComponent } from '../../../shared/shared-forms/select/select-channel.component'
+import { REQUIRED_VALIDATOR } from '@app/shared/form-validators/common-validators'
 
 @Component({
   selector: 'my-video-channel-sync-edit',
   templateUrl: './video-channel-sync-edit.component.html',
-  styleUrls: [ './video-channel-sync-edit.component.scss' ]
+  styleUrls: [ './video-channel-sync-edit.component.scss' ],
+  standalone: true,
+  imports: [ NgIf, FormsModule, ReactiveFormsModule, NgClass, SelectChannelComponent, AlertComponent ]
 })
 export class VideoChannelSyncEditComponent extends FormReactive implements OnInit {
   error: string
@@ -33,8 +42,8 @@ export class VideoChannelSyncEditComponent extends FormReactive implements OnIni
   ngOnInit () {
     this.buildForm({
       externalChannelUrl: VIDEO_CHANNEL_EXTERNAL_URL_VALIDATOR,
-      videoChannel: null,
-      existingVideoStrategy: null
+      videoChannel: REQUIRED_VALIDATOR,
+      existingVideoStrategy: REQUIRED_VALIDATOR
     })
 
     listUserChannelsForSelect(this.authService)

@@ -3,14 +3,17 @@ import { ServerService, User, UserService } from '@app/core'
 import { peertubeLocalStorage } from '@root-helpers/peertube-web-storage'
 import { isP2PEnabled } from '@root-helpers/video'
 import { HTMLServerConfig, Video } from '@peertube/peertube-models'
+import { NgIf } from '@angular/common'
 
 @Component({
   selector: 'my-privacy-concerns',
   templateUrl: './privacy-concerns.component.html',
-  styleUrls: [ './privacy-concerns.component.scss' ]
+  styleUrls: [ './privacy-concerns.component.scss' ],
+  standalone: true,
+  imports: [ NgIf ]
 })
 export class PrivacyConcernsComponent implements OnInit {
-  private static LOCAL_STORAGE_PRIVACY_CONCERN_KEY = 'video-watch-privacy-concern'
+  private static LS_PRIVACY_CONCERN_KEY = 'video-watch-privacy-concern'
 
   @Input() video: Video
 
@@ -31,7 +34,7 @@ export class PrivacyConcernsComponent implements OnInit {
   }
 
   acceptedPrivacyConcern () {
-    peertubeLocalStorage.setItem(PrivacyConcernsComponent.LOCAL_STORAGE_PRIVACY_CONCERN_KEY, 'true')
+    peertubeLocalStorage.setItem(PrivacyConcernsComponent.LS_PRIVACY_CONCERN_KEY, 'true')
 
     this.display = false
   }
@@ -43,6 +46,6 @@ export class PrivacyConcernsComponent implements OnInit {
   }
 
   private alreadyAccepted () {
-    return peertubeLocalStorage.getItem(PrivacyConcernsComponent.LOCAL_STORAGE_PRIVACY_CONCERN_KEY) === 'true'
+    return peertubeLocalStorage.getItem(PrivacyConcernsComponent.LS_PRIVACY_CONCERN_KEY) === 'true'
   }
 }

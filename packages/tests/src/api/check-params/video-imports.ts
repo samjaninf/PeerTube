@@ -1,21 +1,21 @@
 /* eslint-disable @typescript-eslint/no-unused-expressions,@typescript-eslint/require-await */
 
 import { omit } from '@peertube/peertube-core-utils'
-import { HttpStatusCode, VideoPrivacy } from '@peertube/peertube-models'
-import { checkBadCountPagination, checkBadSortPagination, checkBadStartPagination } from '@tests/shared/checks.js'
-import { FIXTURE_URLS } from '@tests/shared/tests.js'
+import { HttpStatusCode, VideoCommentPolicy, VideoImportCreate, VideoPrivacy } from '@peertube/peertube-models'
 import { buildAbsoluteFixturePath } from '@peertube/peertube-node-utils'
 import {
+  PeerTubeServer,
   cleanupTests,
   createSingleServer,
   makeGetRequest,
   makePostBodyRequest,
   makeUploadRequest,
-  PeerTubeServer,
   setAccessTokensToServers,
   setDefaultVideoChannel,
   waitJobs
 } from '@peertube/peertube-server-commands'
+import { checkBadCountPagination, checkBadSortPagination, checkBadStartPagination } from '@tests/shared/checks.js'
+import { FIXTURE_URLS } from '@tests/shared/fixture-urls.js'
 
 describe('Test video imports API validator', function () {
   const path = '/api/v1/videos/imports'
@@ -74,7 +74,7 @@ describe('Test video imports API validator', function () {
   })
 
   describe('When adding a video import', function () {
-    let baseCorrectParams
+    let baseCorrectParams: VideoImportCreate
 
     before(function () {
       baseCorrectParams = {
@@ -84,7 +84,7 @@ describe('Test video imports API validator', function () {
         licence: 1,
         language: 'pt',
         nsfw: false,
-        commentsEnabled: true,
+        commentsPolicy: VideoCommentPolicy.ENABLED,
         downloadEnabled: true,
         waitTranscoding: true,
         description: 'my super description',
@@ -172,6 +172,12 @@ describe('Test video imports API validator', function () {
 
     it('Should fail with a bad language', async function () {
       const fields = { ...baseCorrectParams, language: 'a'.repeat(15) }
+
+      await makePostBodyRequest({ url: server.url, path, token: server.accessToken, fields })
+    })
+
+    it('Should fail with a bad commentsPolicy', async function () {
+      const fields = { ...baseCorrectParams, commentsPolicy: 42 }
 
       await makePostBodyRequest({ url: server.url, path, token: server.accessToken, fields })
     })
@@ -299,7 +305,7 @@ describe('Test video imports API validator', function () {
     })
 
     it('Should forbid to import http videos', async function () {
-      await server.config.updateCustomSubConfig({
+      await server.config.updateExistingConfig({
         newConfig: {
           import: {
             videos: {
@@ -324,7 +330,7 @@ describe('Test video imports API validator', function () {
     })
 
     it('Should forbid to import torrent videos', async function () {
-      await server.config.updateCustomSubConfig({
+      await server.config.updateExistingConfig({
         newConfig: {
           import: {
             videos: {
@@ -371,7 +377,7 @@ describe('Test video imports API validator', function () {
 
     async function importVideo () {
       const attributes = { channelId: server.store.channel.id, targetUrl: FIXTURE_URLS.goodVideo }
-      const res = await server.imports.importVideo({ attributes })
+      const res = await server.videoImports.importVideo({ attributes })
 
       return res.id
     }
@@ -381,23 +387,23 @@ describe('Test video imports API validator', function () {
     })
 
     it('Should fail with an invalid import id', async function () {
-      await server.imports.cancel({ importId: 'artyom' as any, expectedStatus: HttpStatusCode.BAD_REQUEST_400 })
-      await server.imports.delete({ importId: 'artyom' as any, expectedStatus: HttpStatusCode.BAD_REQUEST_400 })
+      await server.videoImports.cancel({ importId: 'artyom' as any, expectedStatus: HttpStatusCode.BAD_REQUEST_400 })
+      await server.videoImports.delete({ importId: 'artyom' as any, expectedStatus: HttpStatusCode.BAD_REQUEST_400 })
     })
 
     it('Should fail with an unknown import id', async function () {
-      await server.imports.cancel({ importId: 42, expectedStatus: HttpStatusCode.NOT_FOUND_404 })
-      await server.imports.delete({ importId: 42, expectedStatus: HttpStatusCode.NOT_FOUND_404 })
+      await server.videoImports.cancel({ importId: 42, expectedStatus: HttpStatusCode.NOT_FOUND_404 })
+      await server.videoImports.delete({ importId: 42, expectedStatus: HttpStatusCode.NOT_FOUND_404 })
     })
 
     it('Should fail without token', async function () {
-      await server.imports.cancel({ importId, token: null, expectedStatus: HttpStatusCode.UNAUTHORIZED_401 })
-      await server.imports.delete({ importId, token: null, expectedStatus: HttpStatusCode.UNAUTHORIZED_401 })
+      await server.videoImports.cancel({ importId, token: null, expectedStatus: HttpStatusCode.UNAUTHORIZED_401 })
+      await server.videoImports.delete({ importId, token: null, expectedStatus: HttpStatusCode.UNAUTHORIZED_401 })
     })
 
     it('Should fail with another user token', async function () {
-      await server.imports.cancel({ importId, token: userAccessToken, expectedStatus: HttpStatusCode.FORBIDDEN_403 })
-      await server.imports.delete({ importId, token: userAccessToken, expectedStatus: HttpStatusCode.FORBIDDEN_403 })
+      await server.videoImports.cancel({ importId, token: userAccessToken, expectedStatus: HttpStatusCode.FORBIDDEN_403 })
+      await server.videoImports.delete({ importId, token: userAccessToken, expectedStatus: HttpStatusCode.FORBIDDEN_403 })
     })
 
     it('Should fail to cancel non pending import', async function () {
@@ -405,11 +411,11 @@ describe('Test video imports API validator', function () {
 
       await waitJobs([ server ])
 
-      await server.imports.cancel({ importId, expectedStatus: HttpStatusCode.CONFLICT_409 })
+      await server.videoImports.cancel({ importId, expectedStatus: HttpStatusCode.CONFLICT_409 })
     })
 
     it('Should succeed to delete an import', async function () {
-      await server.imports.delete({ importId })
+      await server.videoImports.delete({ importId })
     })
 
     it('Should fail to delete a pending import', async function () {
@@ -417,13 +423,13 @@ describe('Test video imports API validator', function () {
 
       importId = await importVideo()
 
-      await server.imports.delete({ importId, expectedStatus: HttpStatusCode.CONFLICT_409 })
+      await server.videoImports.delete({ importId, expectedStatus: HttpStatusCode.CONFLICT_409 })
     })
 
     it('Should succeed to cancel an import', async function () {
       importId = await importVideo()
 
-      await server.imports.cancel({ importId })
+      await server.videoImports.cancel({ importId })
     })
   })
 

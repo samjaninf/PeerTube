@@ -1,7 +1,7 @@
-import { minBy } from 'lodash-es'
+import { minBy } from '@peertube/peertube-core-utils'
+import { VideoChannel } from '@peertube/peertube-models'
 import { first, map } from 'rxjs/operators'
 import { SelectChannelItem } from 'src/types/select-options-item.model'
-import { VideoChannel } from '@peertube/peertube-models'
 import { AuthService } from '../../core/auth'
 
 function listUserChannelsForSelect (authService: AuthService) {
@@ -40,5 +40,5 @@ export {
 function getAvatarPath (c: VideoChannel) {
   if (!c.avatars || c.avatars.length === 0) return undefined
 
-  return minBy(c.avatars, 'width').path
+  return minBy(c.avatars, 'width')?.path || c.avatars[0].path
 }

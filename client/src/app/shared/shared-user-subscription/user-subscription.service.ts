@@ -1,13 +1,16 @@
-import * as debug from 'debug'
+import debug from 'debug'
 import { merge, Observable, of, ReplaySubject, Subject } from 'rxjs'
 import { catchError, filter, map, switchMap, tap } from 'rxjs/operators'
 import { HttpClient, HttpParams } from '@angular/common/http'
 import { Injectable } from '@angular/core'
 import { ComponentPaginationLight, RestExtractor, RestService } from '@app/core'
 import { buildBulkObservable } from '@app/helpers'
-import { Video, VideoChannel, VideoChannelService, VideoService } from '@app/shared/shared-main'
 import { ActorFollow, ResultList, VideoChannel as VideoChannelServer, VideoSortField } from '@peertube/peertube-models'
 import { environment } from '../../../environments/environment'
+import { Video } from '../shared-main/video/video.model'
+import { VideoChannel } from '../shared-main/channel/video-channel.model'
+import { VideoService } from '../shared-main/video/video.service'
+import { VideoChannelService } from '../shared-main/channel/video-channel.service'
 
 const debugLogger = debug('peertube:subscriptions:UserSubscriptionService')
 
@@ -36,7 +39,7 @@ export class UserSubscriptionService {
   ) {
     this.existsObservable = merge(
       buildBulkObservable({
-        time: 500,
+        time: 200,
         notifierObservable: this.existsSubject,
         bulkGet: this.doSubscriptionsExist.bind(this)
       }).pipe(map(r => r.response)),
@@ -176,17 +179,17 @@ export class UserSubscriptionService {
   }
 
   doesSubscriptionExist (nameWithHost: string) {
-    debugLogger('Running subscription check for %d.', nameWithHost)
+    debugLogger('Running subscription check for ' + nameWithHost)
 
     if (nameWithHost in this.myAccountSubscriptionCache) {
-      debugLogger('Found cache for %d.', nameWithHost)
+      debugLogger('Found cache for ' + nameWithHost)
 
       return of(this.myAccountSubscriptionCache[nameWithHost])
     }
 
     this.existsSubject.next(nameWithHost)
 
-    debugLogger('Fetching from network for %d.', nameWithHost)
+    debugLogger('Fetching from network for ' + nameWithHost)
     return this.existsObservable.pipe(
       filter(existsResult => existsResult[nameWithHost] !== undefined),
       map(existsResult => existsResult[nameWithHost]),

@@ -1,5 +1,6 @@
+import { NgClass, NgIf, NgTemplateOutlet } from '@angular/common'
 import { Component, HostListener, OnInit, ViewChild } from '@angular/core'
-import { ActivatedRoute, Router } from '@angular/router'
+import { ActivatedRoute, Router, RouterLink } from '@angular/router'
 import {
   AuthService,
   AuthUser,
@@ -8,7 +9,11 @@ import {
   ServerService,
   UserService
 } from '@app/core'
+import { AlertComponent } from '@app/shared/shared-main/common/alert.component'
+import { NgbNav, NgbNavContent, NgbNavItem, NgbNavLink, NgbNavLinkBase, NgbNavOutlet } from '@ng-bootstrap/ng-bootstrap'
 import { HTMLServerConfig } from '@peertube/peertube-models'
+import { ChannelsSetupMessageComponent } from '../../shared/shared-main/channel/channels-setup-message.component'
+import { UserQuotaComponent } from '../../shared/shared-main/users/user-quota.component'
 import { VideoEditType } from './shared/video-edit.type'
 import { VideoGoLiveComponent } from './video-add-components/video-go-live.component'
 import { VideoImportTorrentComponent } from './video-add-components/video-import-torrent.component'
@@ -18,7 +23,27 @@ import { VideoUploadComponent } from './video-add-components/video-upload.compon
 @Component({
   selector: 'my-videos-add',
   templateUrl: './video-add.component.html',
-  styleUrls: [ './video-add.component.scss' ]
+  styleUrls: [ './video-add.component.scss' ],
+  standalone: true,
+  imports: [
+    NgIf,
+    RouterLink,
+    NgTemplateOutlet,
+    UserQuotaComponent,
+    ChannelsSetupMessageComponent,
+    NgbNav,
+    NgClass,
+    NgbNavItem,
+    NgbNavLink,
+    NgbNavLinkBase,
+    NgbNavContent,
+    VideoUploadComponent,
+    VideoImportUrlComponent,
+    VideoImportTorrentComponent,
+    VideoGoLiveComponent,
+    NgbNavOutlet,
+    AlertComponent
+  ]
 })
 export class VideoAddComponent implements OnInit, CanComponentDeactivate {
   @ViewChild('videoUpload') videoUpload: VideoUploadComponent

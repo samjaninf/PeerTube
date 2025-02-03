@@ -1,12 +1,31 @@
-import { Subject } from 'rxjs'
+import { NgFor, NgIf } from '@angular/common'
 import { Component } from '@angular/core'
-import { ComponentPagination, Notifier } from '@app/core'
-import { VideoChannel } from '@app/shared/shared-main'
-import { UserSubscriptionService } from '@app/shared/shared-user-subscription'
+import { RouterLink } from '@angular/router'
+import { ComponentPagination, Notifier, resetCurrentPage } from '@app/core'
+import { formatICU } from '@app/helpers'
+import { VideoChannel } from '@app/shared/shared-main/channel/video-channel.model'
+import { UserSubscriptionService } from '@app/shared/shared-user-subscription/user-subscription.service'
+import { Subject } from 'rxjs'
+import { ActorAvatarComponent } from '../../shared/shared-actor-image/actor-avatar.component'
+import { AdvancedInputFilterComponent } from '../../shared/shared-forms/advanced-input-filter.component'
+import { GlobalIconComponent } from '../../shared/shared-icons/global-icon.component'
+import { InfiniteScrollerDirective } from '../../shared/shared-main/common/infinite-scroller.directive'
+import { SubscribeButtonComponent } from '../../shared/shared-user-subscription/subscribe-button.component'
 
 @Component({
   templateUrl: './my-subscriptions.component.html',
-  styleUrls: [ './my-subscriptions.component.scss' ]
+  styleUrls: [ './my-subscriptions.component.scss' ],
+  standalone: true,
+  imports: [
+    GlobalIconComponent,
+    NgIf,
+    AdvancedInputFilterComponent,
+    InfiniteScrollerDirective,
+    NgFor,
+    ActorAvatarComponent,
+    RouterLink,
+    SubscribeButtonComponent
+  ]
 })
 export class MySubscriptionsComponent {
   videoChannels: VideoChannel[] = []
@@ -36,7 +55,16 @@ export class MySubscriptionsComponent {
 
   onSearch (search: string) {
     this.search = search
+    resetCurrentPage(this.pagination)
+
     this.loadSubscriptions(false)
+  }
+
+  getTotalTitle () {
+    return formatICU(
+      $localize`${this.pagination.totalItems} {total, plural, =1 {subscription} other {subscriptions}}`,
+      { total: this.pagination.totalItems }
+    )
   }
 
   private loadSubscriptions (more = true) {

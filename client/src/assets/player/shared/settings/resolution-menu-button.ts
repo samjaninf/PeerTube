@@ -4,7 +4,7 @@ import { ResolutionMenuItem } from './resolution-menu-item'
 const Menu = videojs.getComponent('Menu')
 const MenuButton = videojs.getComponent('MenuButton')
 class ResolutionMenuButton extends MenuButton {
-  labelEl_: HTMLElement
+  declare labelEl_: HTMLElement
 
   constructor (player: videojs.Player, options?: videojs.MenuButtonOptions) {
     super(player, options)
@@ -42,7 +42,7 @@ class ResolutionMenuButton extends MenuButton {
 
     for (const r of resolutions) {
       const label = r.label === '0p'
-        ? this.player().localize('Audio-only')
+        ? this.player().localize('Audio only')
         : r.label
 
       const component = new ResolutionMenuItem(
@@ -68,7 +68,7 @@ class ResolutionMenuButton extends MenuButton {
   }
 
   buildCSSClass () {
-    return super.buildCSSClass() + ' vjs-resolution-button'
+    return 'vjs-resolution-button ' + super.buildCSSClass()
   }
 
   buildWrapperCSSClass () {

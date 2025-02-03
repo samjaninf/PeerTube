@@ -5,11 +5,11 @@
   display: flex;
 
   .left {
-    @include margin-right(10px);
-
     display: flex;
     flex-direction: column;
     align-items: center;
+
+    @include margin-right(10px);
 
     .vertical-border {
       width: 2px;
@@ -32,8 +32,8 @@
 
 .highlighted-comment {
   display: inline-block;
-  background-color: #F5F5F5;
-  color: #3d3d3d;
+  background-color: pvar(--bg-secondary-400);
+  color: pvar(--fg);
   padding: 0 5px;
   font-size: 13px;
   margin-bottom: 5px;
@@ -47,11 +47,9 @@
 }
 
 .video-author {
-  @include padding-right(6px);
-  @include padding-left(6px);
-
   height: 20px;
-  background-color: #888888;
+  background-color: pvar(--bg-secondary-400);
+  color: pvar(--fg);
   border-radius: 12px;
   margin-bottom: 2px;
   max-width: 100%;
@@ -59,7 +57,9 @@
   flex-direction: row;
   align-items: center;
   display: inline-flex;
-  color: #fff !important;
+
+  @include padding-right(6px);
+  @include padding-left(6px);
 }
 
 .comment-account {
@@ -68,9 +68,9 @@
   font-size: 90%;
 
   a {
-    @include disable-default-a-behaviour;
+    color: pvar(--fg);
 
-    color: pvar(--mainForegroundColor);
+    @include disable-default-a-behaviour;
 
     &:hover {
       text-decoration: underline;
@@ -78,16 +78,16 @@
   }
 
   .comment-account-fid {
-    opacity: .6;
+    color: pvar(--fg-300);
   }
 }
 
 .comment-date {
-  @include margin-left(5px);
-
   font-size: 90%;
-  color: pvar(--greyForegroundColor);
+  color: pvar(--fg-300);
   text-decoration: none;
+
+  @include margin-left(5px);
 
   &:hover {
     text-decoration: underline;
@@ -101,11 +101,11 @@
   ::ng-deep a {
 
     &:not(.linkified-url) {
-      @include disable-default-a-behaviour;
-
-      color: pvar(--mainForegroundColor);
+      color: pvar(--fg);
 
       font-weight: $font-semibold;
+
+      @include disable-default-a-behaviour;
     }
 
   }
@@ -116,7 +116,7 @@
   }
 
   &.comment-html-deleted {
-    color: pvar(--greyForegroundColor);
+    color: pvar(--fg-300);
     margin-bottom: 1rem;
   }
 }
@@ -127,16 +127,16 @@
 
   ::ng-deep .dropdown-toggle,
   .comment-action-reply {
-    @include margin-right(10px);
-
-    color: pvar(--greyForegroundColor);
+    color: pvar(--fg-300);
     cursor: pointer;
+
+    @include margin-right(10px);
 
     &:hover,
     &:active,
     &:focus,
     &:focus-visible {
-      color: pvar(--mainForegroundColor);
+      color: pvar(--fg);
     }
   }
 

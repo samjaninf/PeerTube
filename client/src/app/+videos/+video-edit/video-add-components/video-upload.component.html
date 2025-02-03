@@ -2,7 +2,7 @@
   <div class="first-step-block">
     <my-global-icon class="upload-icon" iconName="upload" aria-hidden="true"></my-global-icon>
 
-    <div class="button-file form-control" [ngbTooltip]="'(extensions: ' + getVideoExtensions() + ')'">
+    <div class="button-file primary-button form-control" [ngbTooltip]="'(extensions: ' + getVideoExtensions() + ')'">
       <span i18n>Select the file to upload</span>
       <input
         aria-label="Select the file to upload"
@@ -17,16 +17,12 @@
 
     <div class="form-group form-group-channel">
       <label i18n for="first-step-channel">Channel</label>
-      <my-select-channel
-        labelForId="first-step-channel" [items]="userVideoChannels" [(ngModel)]="firstStepChannelId"
-      ></my-select-channel>
+      <my-select-channel inputId="first-step-channel" [items]="userVideoChannels" [(ngModel)]="firstStepChannelId"></my-select-channel>
     </div>
 
     <div class="form-group">
       <label i18n for="first-step-privacy">Privacy</label>
-      <my-select-options
-        labelForId="first-step-privacy" [items]="videoPrivacies" [(ngModel)]="firstStepPrivacyId"
-      ></my-select-options>
+      <my-select-options inputId="first-step-privacy" [items]="videoPrivacies" [(ngModel)]="firstStepPrivacyId"></my-select-options>
     </div>
 
     <ng-container *ngIf="isUploadingAudioFile">
@@ -46,43 +42,37 @@
       </div>
 
       <div class="form-group upload-audio-button">
-        <my-button
-          className="orange-button"
-          [label]="getAudioUploadLabel()"
-          icon="upload"
-          (click)="uploadAudio()"
-        >
-        </my-button>
+        <my-button theme="primary" [label]="getAudioUploadLabel()" icon="upload" (click)="uploadAudio()"></my-button>
       </div>
     </ng-container>
   </div>
 </div>
 
 <my-upload-progress
-  [isUploadingVideo]="isUploadingVideo" [videoUploadPercents]="videoUploadPercents" [error]="error" [videoUploaded]="videoUploaded"
-  [enableRetryAfterError]="enableRetryAfterError" (cancel)="cancelUpload()" (retry)="retryUpload()"
+  [isUploading]="isUploadingVideo" [uploadPercents]="videoUploadPercents" [error]="error" [uploaded]="videoUploaded"
+  [enableRetryAfterError]="enableRetryAfterError" (cancelUpload)="cancelUpload()" (retry)="retryUpload()"
 >
 </my-upload-progress>
 
-<div *ngIf="videoUploaded && !error" class="alert pt-alert-primary" i18n>
+<my-alert *ngIf="videoUploaded && !error" type="primary" i18n>
   Congratulations! Your video is now available in your private library.
-</div>
+</my-alert>
 
 <!-- Hidden because we want to load the component -->
 <form [hidden]="!isUploadingVideo" novalidate [formGroup]="form" class="mb-3">
   <my-video-edit
     [form]="form" [formErrors]="formErrors" [videoCaptions]="videoCaptions"
     [validationMessages]="validationMessages" [userVideoChannels]="userVideoChannels"
-    [forbidScheduledPublication]="false"
+    forbidScheduledPublication="false"
     type="upload"
   ></my-video-edit>
 
   <div class="submit-container">
     <div i18n *ngIf="videoUploaded === false" class="message-submit">Publish will be available when upload is finished</div>
 
-    <my-button className="orange-button" i18n-label label="Publish" icon="circle-tick"
-               (click)="updateSecondStep()" (keydown.enter)="updateSecondStep()"
-               [disabled]="isPublishingButtonDisabled()"
+    <my-button
+      theme="primary" i18n-label label="Publish" icon="circle-tick"
+      (click)="updateSecondStep()" (keydown.enter)="updateSecondStep()" [disabled]="isPublishingButtonDisabled()"
     ></my-button>
   </div>
 </form>

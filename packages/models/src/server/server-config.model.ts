@@ -1,3 +1,4 @@
+import { ActorImage, VideoCommentPolicyType } from '../index.js'
 import { ClientScriptJSON } from '../plugins/plugin-package-json.model.js'
 import { NSFWPolicyType } from '../videos/nsfw-policy.type.js'
 import { VideoPrivacyType } from '../videos/video-privacy.enum.js'
@@ -38,7 +39,6 @@ export interface ServerConfig {
   client: {
     videos: {
       miniature: {
-        displayAuthorAvatar: boolean
         preferAuthorDisplayName: boolean
       }
       resumableUpload: {
@@ -56,7 +56,11 @@ export interface ServerConfig {
   defaults: {
     publish: {
       downloadEnabled: boolean
+
+      // TODO: remove, deprecated in 6.2
       commentsEnabled: boolean
+      commentsPolicy: VideoCommentPolicyType
+
       privacy: VideoPrivacyType
       licence: number
     }
@@ -69,6 +73,10 @@ export interface ServerConfig {
       embed: {
         enabled: boolean
       }
+    }
+
+    player: {
+      autoPlay: boolean
     }
   }
 
@@ -85,11 +93,27 @@ export interface ServerConfig {
     shortDescription: string
     isNSFW: boolean
     defaultNSFWPolicy: NSFWPolicyType
+
+    serverCountry: string
+
+    support: {
+      text: string
+    }
+
+    social: {
+      externalLink: string
+      mastodonLink: string
+      blueskyLink: string
+    }
+
     defaultClientRoute: string
     customizations: {
       javascript: string
       css: string
     }
+
+    avatars: ActorImage[]
+    banners: ActorImage[]
   }
 
   search: {
@@ -116,6 +140,9 @@ export interface ServerConfig {
 
   theme: {
     registered: ServerConfigTheme[]
+
+    builtIn: { name: 'peertube-core-light-beige' | 'peertube-core-dark-brown' }[]
+
     default: string
   }
 
@@ -207,8 +234,21 @@ export interface ServerConfig {
         enabled: boolean
       }
     }
+
     videoChannelSynchronization: {
       enabled: boolean
+    }
+
+    users: {
+      enabled: boolean
+    }
+  }
+
+  export: {
+    users: {
+      enabled: boolean
+      exportExpiration: number
+      maxUserVideoQuota: number
     }
   }
 
@@ -290,6 +330,10 @@ export interface ServerConfig {
     }
   }
 
+  federation: {
+    enabled: boolean
+  }
+
   broadcastMessage: {
     enabled: boolean
     message: string
@@ -299,6 +343,43 @@ export interface ServerConfig {
 
   homepage: {
     enabled: boolean
+  }
+
+  openTelemetry: {
+    metrics: {
+      enabled: boolean
+
+      // milliseconds
+      playbackStatsInterval: number
+    }
+  }
+
+  views: {
+    videos: {
+      watchingInterval: {
+        // milliseconds
+        anonymous: number
+
+        // milliseconds
+        users: number
+      }
+    }
+  }
+
+  storyboards: {
+    enabled: boolean
+  }
+
+  videoTranscription: {
+    enabled: boolean
+
+    remoteRunners: {
+      enabled: boolean
+    }
+  }
+
+  webrtc: {
+    stunServers: string[]
   }
 }
 

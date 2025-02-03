@@ -1,4 +1,3 @@
-
 import { SortMeta } from 'primeng/api'
 import { catchError, concatMap, forkJoin, from, map, toArray } from 'rxjs'
 import { HttpClient, HttpParams } from '@angular/common/http'
@@ -108,8 +107,6 @@ export class RunnerService {
         }
       }
     })
-
-    console.log(filters)
 
     return this.restService.addObjectParams(params, filters)
   }

@@ -1,0 +1,11 @@
+@use '_variables' as *;
+@use '_mixins' as *;
+
+.button-file {
+  width: max-content;
+}
+
+my-alert {
+  display: block;
+  width: fit-content;
+}

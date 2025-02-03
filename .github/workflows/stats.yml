@@ -1,5 +1,7 @@
 name: Stats
 
+permissions: {}
+
 on:
   push:
     branches:
@@ -18,18 +20,14 @@ jobs:
       CI_BRANCH_BASE: develop
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: './.github/actions/reusable-prepare-peertube-build'
         with:
-          node-version: '16.x'
+          node-version: '20.x'
 
-      - name: Angular bundlewatch
-        uses: jackyef/bundlewatch-gh-action@master
-        with:
-          build-script: npm run build -- --analyze-bundle
-          branch-base: develop
-          bundlewatch-github-token: ${{ secrets.BUNDLEWATCH_GITHUB_TOKEN }}
+      - name: Build
+        run: npm run build -- --analyze-bundle
 
       - name: PeerTube code stats
         if: github.event_name != 'pull_request'
@@ -41,7 +39,7 @@ jobs:
       - name: PeerTube client stats
         if: github.event_name != 'pull_request'
         run: |
-          npm run client:build-stats > client-build-stats.json
+          npm run -s client:build-stats > client-build-stats.json
 
       - name: PeerTube client lighthouse report
         if: github.event_name != 'pull_request'

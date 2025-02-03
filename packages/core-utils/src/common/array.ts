@@ -15,6 +15,16 @@ export function arrayify <T> (element: T | T[]) {
   return [ element ]
 }
 
+export function unarray <T> (element: T | T[]) {
+  if (Array.isArray(element)) {
+    if (element.length === 0) return undefined
+
+    return element[0]
+  }
+
+  return element
+}
+
 // Avoid conflict with other uniq() functions
 export function uniqify <T> (elements: T[]) {
   return Array.from(new Set(elements))
@@ -33,7 +43,7 @@ export function shuffle <T> (elements: T[]) {
   return shuffled
 }
 
-export function sortBy (obj: any[], key1: string, key2?: string) {
+export function sortBy <T> (obj: T[], key1: string, key2?: string): T[] {
   return obj.sort((a, b) => {
     const elem1 = key2 ? a[key1][key2] : a[key1]
     const elem2 = key2 ? b[key1][key2] : b[key1]
@@ -42,4 +52,24 @@ export function sortBy (obj: any[], key1: string, key2?: string) {
     if (elem1 === elem2) return 0
     return 1
   })
+}
+
+export function maxBy <T> (arr: T[], property: keyof T) {
+  let result: T
+
+  for (const obj of arr) {
+    if (!result || result[property] < obj[property]) result = obj
+  }
+
+  return result
+}
+
+export function minBy <T> (arr: T[], property: keyof T) {
+  let result: T
+
+  for (const obj of arr) {
+    if (!result || result[property] > obj[property]) result = obj
+  }
+
+  return result
 }

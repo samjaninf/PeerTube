@@ -3,7 +3,9 @@
   <div class="modal-header">
     <h4 class="modal-title">{{ title }}</h4>
 
-    <my-global-icon iconName="cross" aria-label="Close" role="button" (click)="dismiss()"></my-global-icon>
+    <button class="border-0 p-0" title="Close this modal" i18n-title (click)="dismiss()">
+      <my-global-icon iconName="cross"></my-global-icon>
+    </button>
   </div>
 
   <div class="modal-body" >
@@ -12,9 +14,16 @@
     <div *ngIf="inputLabel" class="form-group mt-3">
       <label for="confirmInput">{{ inputLabel }}</label>
 
-      <input *ngIf="!isPasswordInput" type="text" id="confirmInput" name="confirmInput" [(ngModel)]="inputValue" (keyup.enter)="confirm()" />
+      <input
+        *ngIf="!isPasswordInput" type="text"
+        myAutofocus id="confirmInput" name="confirmInput"
+        [(ngModel)]="inputValue" (keyup.enter)="confirm()"
+      />
 
-      <my-input-text *ngIf="isPasswordInput" inputId="confirmInput" [(ngModel)]="inputValue" (keyup.enter)="confirm()"></my-input-text>
+      <my-input-text
+        *ngIf="isPasswordInput" [autofocus]="true" autocomplete="on"
+        inputId="confirmInput" [(ngModel)]="inputValue" (keyup.enter)="confirm()"
+      ></my-input-text>
     </div>
 
     <div *ngIf="hasError()" class="text-danger">{{ errorMessage }}</div>
@@ -22,13 +31,13 @@
 
   <div class="modal-footer inputs">
     <input
-      type="button" role="button" i18n-value value="Cancel" class="peertube-button grey-button"
+      type="button" role="button" i18n-value value="Cancel" class="peertube-button secondary-button"
       (click)="dismiss()" (key.enter)="dismiss()"
     >
 
     <input
       ngbAutofocus
-      type="submit" [value]="confirmButtonText" class="peertube-button orange-button" [disabled]="isConfirmationDisabled()"
+      type="submit" [value]="confirmButtonText" class="peertube-button primary-button" [disabled]="isConfirmationDisabled()"
       (click)="close()" (key.enter)="confirm()"
     >
   </div>

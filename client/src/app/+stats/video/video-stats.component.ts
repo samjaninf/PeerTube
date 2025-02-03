@@ -1,12 +1,10 @@
-import { ChartConfiguration, ChartData, PluginOptionsByType, Scale, TooltipItem } from 'chart.js'
+import { ChartConfiguration, ChartData, ChartOptions, PluginOptionsByType, Scale, TooltipItem, defaults as ChartJSDefaults } from 'chart.js'
 import zoomPlugin from 'chartjs-plugin-zoom'
 import { Observable, of } from 'rxjs'
 import { SelectOptionsItem } from 'src/types'
 import { Component, Inject, LOCALE_ID, OnInit } from '@angular/core'
 import { ActivatedRoute } from '@angular/router'
 import { Notifier, PeerTubeRouterService } from '@app/core'
-import { NumberFormatterPipe, VideoDetails } from '@app/shared/shared-main'
-import { LiveVideoService } from '@app/shared/shared-video-live'
 import { secondsToTime } from '@peertube/peertube-core-utils'
 import {
   HttpStatusCode,
@@ -17,14 +15,30 @@ import {
   VideoStatsTimeserieMetric
 } from '@peertube/peertube-models'
 import { VideoStatsService } from './video-stats.service'
+import { ButtonComponent } from '../../shared/shared-main/buttons/button.component'
+import { ChartModule } from 'primeng/chart'
+import { NgbNav, NgbNavItem, NgbNavLink, NgbNavLinkBase, NgbNavContent, NgbNavOutlet } from '@ng-bootstrap/ng-bootstrap'
+import { FormsModule } from '@angular/forms'
+import { SelectOptionsComponent } from '../../shared/shared-forms/select/select-options.component'
+import { EmbedComponent } from '../../shared/shared-main/video/embed.component'
+import { PeerTubeTemplateDirective } from '../../shared/shared-main/common/peertube-template.directive'
+import { HelpComponent } from '../../shared/shared-main/buttons/help.component'
+import { NgFor, NgIf } from '@angular/common'
+import { NumberFormatterPipe } from '@app/shared/shared-main/common/number-formatter.pipe'
+import { VideoDetails } from '@app/shared/shared-main/video/video-details.model'
+import { LiveVideoService } from '@app/shared/shared-video-live/live-video.service'
+import { GlobalIconComponent } from '@app/shared/shared-icons/global-icon.component'
 
-type ActiveGraphId = VideoStatsTimeserieMetric | 'retention' | 'countries'
+type ActiveGraphId = VideoStatsTimeserieMetric | 'retention' | 'countries' | 'regions'
 
-type CountryData = { name: string, viewers: number }[]
+type GeoData = { name: string, viewers: number }[]
 
-type ChartIngestData = VideoStatsTimeserie | VideoStatsRetention | CountryData
+type ChartIngestData = VideoStatsTimeserie | VideoStatsRetention | GeoData
 type ChartBuilderResult = {
   type: 'line' | 'bar'
+
+  options?: ChartOptions<'bar'>
+
   plugins: Partial<PluginOptionsByType<'line' | 'bar'>>
   data: ChartData<'line' | 'bar'>
   displayLegend: boolean
@@ -32,10 +46,33 @@ type ChartBuilderResult = {
 
 type Card = { label: string, value: string | number, moreInfo?: string, help?: string }
 
+ChartJSDefaults.backgroundColor = getComputedStyle(document.body).getPropertyValue('--bg')
+ChartJSDefaults.borderColor = getComputedStyle(document.body).getPropertyValue('--bg-secondary-500')
+ChartJSDefaults.color = getComputedStyle(document.body).getPropertyValue('--fg')
+
 @Component({
   templateUrl: './video-stats.component.html',
   styleUrls: [ './video-stats.component.scss' ],
-  providers: [ NumberFormatterPipe ]
+  providers: [ NumberFormatterPipe ],
+  standalone: true,
+  imports: [
+    NgFor,
+    NgIf,
+    HelpComponent,
+    PeerTubeTemplateDirective,
+    EmbedComponent,
+    SelectOptionsComponent,
+    FormsModule,
+    NgbNav,
+    NgbNavItem,
+    NgbNavLink,
+    NgbNavLinkBase,
+    NgbNavContent,
+    ChartModule,
+    ButtonComponent,
+    NgbNavOutlet,
+    GlobalIconComponent
+  ]
 })
 export class VideoStatsComponent implements OnInit {
   // Cannot handle date filters
@@ -52,7 +89,8 @@ export class VideoStatsComponent implements OnInit {
 
   video: VideoDetails
 
-  countries: CountryData = []
+  countries: GeoData = []
+  regions: GeoData = []
 
   chartPlugins = [ zoomPlugin ]
 
@@ -97,6 +135,11 @@ export class VideoStatsComponent implements OnInit {
         id: 'countries',
         label: $localize`Countries`,
         zoomEnabled: false
+      },
+      {
+        id: 'regions',
+        label: $localize`Regions`,
+        zoomEnabled: false
       }
     ]
 
@@ -133,8 +176,20 @@ export class VideoStatsComponent implements OnInit {
     return this.countries.length !== 0
   }
 
+  hasRegions () {
+    return this.regions.length !== 0
+  }
+
   onChartChange (newActive: ActiveGraphId) {
     this.activeGraphId = newActive
+
+    if (newActive === 'countries') {
+      this.chartHeight = `${Math.max(this.countries.length * 20, 300)}px`
+    } else if (newActive === 'regions') {
+      this.chartHeight = `${Math.max(this.regions.length * 20, 300)}px`
+    } else {
+      this.chartHeight = '300px'
+    }
 
     this.loadChart()
   }
@@ -179,6 +234,8 @@ export class VideoStatsComponent implements OnInit {
             name: this.countryCodeToName(c.isoCode),
             viewers: c.viewers
           }))
+
+          this.regions = res.subdivisions
 
           this.buildOverallStatCard(res)
         },
@@ -254,7 +311,7 @@ export class VideoStatsComponent implements OnInit {
       {
         label: $localize`Views`,
         value: this.numberFormatter.transform(this.video.views),
-        help: $localize`A view means that someone watched the video for at least 30 seconds`
+        help: $localize`A view means that someone watched the video for several seconds (10 seconds by default)`
       },
       {
         label: $localize`Likes`,
@@ -265,11 +322,11 @@ export class VideoStatsComponent implements OnInit {
     this.overallStatCards = [
       {
         label: $localize`Average watch time`,
-        value: secondsToTime(overallStats.averageWatchTime)
+        value: secondsToTime({ seconds: overallStats.averageWatchTime, format: 'locale-string' })
       },
       {
         label: $localize`Total watch time`,
-        value: secondsToTime(overallStats.totalWatchTime)
+        value: secondsToTime({ seconds: overallStats.totalWatchTime, format: 'locale-string' })
       },
       {
         label: $localize`Peak viewers`,
@@ -288,6 +345,13 @@ export class VideoStatsComponent implements OnInit {
       this.overallStatCards.push({
         label: $localize`Countries`,
         value: this.numberFormatter.transform(overallStats.countries.length)
+      })
+    }
+
+    if (overallStats.subdivisions.length !== 0) {
+      this.overallStatCards.push({
+        label: $localize`Regions`,
+        value: this.numberFormatter.transform(overallStats.subdivisions.length)
       })
     }
   }
@@ -309,7 +373,9 @@ export class VideoStatsComponent implements OnInit {
         metric: 'viewers'
       }),
 
-      countries: of(this.countries)
+      countries: of(this.countries),
+
+      regions: of(this.regions)
     }
 
     obsBuilders[this.activeGraphId].subscribe({
@@ -330,10 +396,11 @@ export class VideoStatsComponent implements OnInit {
       retention: (rawData: VideoStatsRetention) => this.buildRetentionChartOptions(rawData),
       aggregateWatchTime: (rawData: VideoStatsTimeserie) => this.buildTimeserieChartOptions(rawData),
       viewers: (rawData: VideoStatsTimeserie) => this.buildTimeserieChartOptions(rawData),
-      countries: (rawData: CountryData) => this.buildCountryChartOptions(rawData)
+      countries: (rawData: GeoData) => this.buildGeoChartOptions(rawData),
+      regions: (rawData: GeoData) => this.buildGeoChartOptions(rawData)
     }
 
-    const { type, data, displayLegend, plugins } = dataBuilders[graphId](this.chartIngestData[graphId])
+    const { type, data, displayLegend, plugins, options } = dataBuilders[graphId](this.chartIngestData[graphId])
 
     const self = this
 
@@ -342,6 +409,8 @@ export class VideoStatsComponent implements OnInit {
       data,
 
       options: {
+        ...options,
+
         responsive: true,
 
         scales: {
@@ -366,7 +435,9 @@ export class VideoStatsComponent implements OnInit {
               : undefined,
 
             ticks: {
-              callback: value => this.formatYTick({ graphId, value })
+              callback: function (value) {
+                return self.formatYTick({ graphId, value, scale: this })
+              }
             }
           }
         },
@@ -394,7 +465,7 @@ export class VideoStatsComponent implements OnInit {
 
     for (const d of rawData.data) {
       labels.push(secondsToTime(d.second))
-      data.push(d.retentionPercent)
+      data.push(Math.round(d.retentionPercent))
     }
 
     return {
@@ -449,7 +520,9 @@ export class VideoStatsComponent implements OnInit {
               const { min, max } = chart.scales.x
 
               const startDate = rawData.data[min].date
-              const endDate = this.buildZoomEndDate(rawData.groupInterval, rawData.data[max].date)
+              const endDate = max === rawData.data.length - 1
+                ? (this.statsEndDate || new Date()).toISOString()
+                : rawData.data[max + 1].date
 
               this.peertubeRouter.silentNavigate([], { startDate, endDate })
               this.addAndSelectCustomDateFilter()
@@ -475,7 +548,7 @@ export class VideoStatsComponent implements OnInit {
     }
   }
 
-  private buildCountryChartOptions (rawData: CountryData): ChartBuilderResult {
+  private buildGeoChartOptions (rawData: GeoData): ChartBuilderResult {
     const labels: string[] = []
     const data: number[] = []
 
@@ -486,6 +559,10 @@ export class VideoStatsComponent implements OnInit {
 
     return {
       type: 'bar' as 'bar',
+
+      options: {
+        indexAxis: 'y'
+      },
 
       displayLegend: true,
 
@@ -508,7 +585,7 @@ export class VideoStatsComponent implements OnInit {
   }
 
   private buildChartColor () {
-    return getComputedStyle(document.body).getPropertyValue('--mainColorLighter')
+    return getComputedStyle(document.body).getPropertyValue('--border-primary')
   }
 
   private formatXTick (options: {
@@ -527,7 +604,7 @@ export class VideoStatsComponent implements OnInit {
 
     const date = new Date(label)
 
-    if (data.groupInterval.match(/ month?$/)) {
+    if (data.groupInterval.match(/ months?$/)) {
       return date.toLocaleDateString([], { year: '2-digit', month: 'numeric' })
     }
 
@@ -545,11 +622,13 @@ export class VideoStatsComponent implements OnInit {
   private formatYTick (options: {
     graphId: ActiveGraphId
     value: number | string
+    scale?: Scale
   }) {
-    const { graphId, value } = options
+    const { graphId, value, scale } = options
 
     if (graphId === 'retention') return value + ' %'
     if (graphId === 'aggregateWatchTime') return secondsToTime(+value)
+    if ((graphId === 'countries' || graphId === 'regions') && scale) return scale.getLabelForValue(value as number)
 
     return value.toLocaleString(this.localeId)
   }
@@ -604,20 +683,5 @@ export class VideoStatsComponent implements OnInit {
       minute: 'numeric',
       second: 'numeric'
     })
-  }
-
-  private buildZoomEndDate (groupInterval: string, last: string) {
-    const date = new Date(last)
-
-    // Remove parts of the date we don't need
-    if (groupInterval.endsWith(' day') || groupInterval.endsWith(' days')) {
-      date.setHours(23, 59, 59)
-    } else if (groupInterval.endsWith(' hour') || groupInterval.endsWith(' hours')) {
-      date.setMinutes(59, 59)
-    } else {
-      date.setSeconds(59)
-    }
-
-    return date.toISOString()
   }
 }

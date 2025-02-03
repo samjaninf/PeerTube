@@ -6,6 +6,7 @@ import {
   ABUSE_STATES,
   buildLanguages,
   RUNNER_JOB_STATES,
+  USER_EXPORT_STATES,
   USER_REGISTRATION_STATES,
   VIDEO_CATEGORIES,
   VIDEO_CHANNEL_SYNC_STATE,
@@ -14,8 +15,9 @@ import {
   VIDEO_PLAYLIST_PRIVACIES,
   VIDEO_PLAYLIST_TYPES,
   VIDEO_PRIVACIES,
+  USER_IMPORT_STATES,
   VIDEO_STATES
-} from '@peertube/peertube-server/server/initializers/constants.js'
+} from '@peertube/peertube-server/core/initializers/constants.js'
 
 const videojs = readJsonSync(join(root(), 'client', 'src', 'locale', 'videojs.en-US.json'))
 const playerKeys = {
@@ -61,7 +63,7 @@ const playerKeys = {
   '  off': '  off',
   'Player mode': 'Player mode',
   'Play in loop': 'Play in loop',
-  'This live has not started yet.': 'This live has not started yet.',
+  'This live is not currently streaming.': 'This live is not currently streaming.',
   'This live has ended.': 'This live has ended.',
   'The video failed to play, will try to fast forward.': 'The video failed to play, will try to fast forward.',
   '{1} / {2} dropped of {3}': '{1} / {2} dropped of {3}',
@@ -75,7 +77,13 @@ const playerKeys = {
   'Incorrect password, please enter a correct password': 'Incorrect password, please enter a correct password',
   'Cancel': 'Cancel',
   'Up Next': 'Up Next',
-  'Autoplay is suspended': 'Autoplay is suspended'
+  'Autoplay is suspended': 'Autoplay is suspended',
+  '{1} (from edge: {2})': '{1} (from edge: {2})',
+  'Disable subtitles': 'Disable subtitles',
+  'Enable {1} subtitle': 'Enable {1} subtitle',
+  '{1} (auto-generated)': '{1} (auto-generated)',
+  'Go back': 'Go back',
+  'Audio only': 'Audio only'
 }
 Object.assign(playerKeys, videojs)
 
@@ -93,6 +101,8 @@ Object.values(VIDEO_CATEGORIES)
   .concat(Object.values(ABUSE_STATES))
   .concat(Object.values(USER_REGISTRATION_STATES))
   .concat(Object.values(RUNNER_JOB_STATES))
+  .concat(Object.values(USER_EXPORT_STATES))
+  .concat(Object.values(USER_IMPORT_STATES))
   .concat([
     'This video does not exist.',
     'We cannot fetch the video. Please try again later.',

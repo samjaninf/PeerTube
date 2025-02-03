@@ -1,11 +1,13 @@
 import { Component, EventEmitter, Input, OnChanges, OnInit, Output, ViewChild } from '@angular/core'
-import { AuthService, ConfirmService, Notifier, ServerService } from '@app/core'
-import { Account, DropdownAction } from '@app/shared/shared-main'
+import { AuthService, ConfirmService, HooksService, Notifier, PluginService, ServerService } from '@app/core'
 import { BulkRemoveCommentsOfBody, User, UserRight } from '@peertube/peertube-models'
-import { UserAdminService } from '../shared-users'
 import { BlocklistService } from './blocklist.service'
 import { BulkService } from './bulk.service'
 import { UserBanModalComponent } from './user-ban-modal.component'
+import { ActionDropdownComponent, DropdownAction } from '../shared-main/buttons/action-dropdown.component'
+import { NgIf } from '@angular/common'
+import { Account } from '../shared-main/account/account.model'
+import { UserAdminService } from '../shared-users/user-admin.service'
 
 export type AccountMutedStatus =
   Pick<Account, 'id' | 'nameWithHost' | 'host' | 'userId' |
@@ -19,7 +21,9 @@ export type UserModerationDisplayType = {
 
 @Component({
   selector: 'my-user-moderation-dropdown',
-  templateUrl: './user-moderation-dropdown.component.html'
+  templateUrl: './user-moderation-dropdown.component.html',
+  standalone: true,
+  imports: [ NgIf, UserBanModalComponent, ActionDropdownComponent ]
 })
 export class UserModerationDropdownComponent implements OnInit, OnChanges {
   @ViewChild('userBanModal') userBanModal: UserBanModalComponent
@@ -54,7 +58,9 @@ export class UserModerationDropdownComponent implements OnInit, OnChanges {
     private serverService: ServerService,
     private userAdminService: UserAdminService,
     private blocklistService: BlocklistService,
-    private bulkService: BulkService
+    private bulkService: BulkService,
+    private hooks: HooksService,
+    private pluginService: PluginService
   ) { }
 
   ngOnInit () {
@@ -256,7 +262,7 @@ export class UserModerationDropdownComponent implements OnInit, OnChanges {
   }
 
   getRouterUserEditLink (user: User) {
-    return [ '/admin', 'users', 'update', user.id ]
+    return [ '/admin', 'overview', 'users', 'update', user.id ]
   }
 
   private isMyUser (user: User) {
@@ -267,20 +273,20 @@ export class UserModerationDropdownComponent implements OnInit, OnChanges {
     return account && this.authService.getUser().account.id === account.id
   }
 
-  private buildActions () {
-    this.userActions = []
+  private async buildActions () {
+    const userActions: DropdownAction<{ user: User, account: AccountMutedStatus }>[][] = []
 
     if (this.prependActions && this.prependActions.length !== 0) {
-      this.userActions = [
-        this.prependActions
-      ]
+      userActions.push(this.prependActions)
     }
 
     const myAccountModerationActions = this.buildMyAccountModerationActions()
     const instanceModerationActions = this.buildInstanceModerationActions()
 
-    if (myAccountModerationActions.length !== 0) this.userActions.push(myAccountModerationActions)
-    if (instanceModerationActions.length !== 0) this.userActions.push(instanceModerationActions)
+    if (myAccountModerationActions.length !== 0) userActions.push(myAccountModerationActions)
+    if (instanceModerationActions.length !== 0) userActions.push(instanceModerationActions)
+
+    this.userActions = await this.hooks.wrapObject(userActions, 'moderation', 'filter:user-moderation.actions.create.result')
   }
 
   private buildMyAccountModerationActions () {
@@ -362,7 +368,7 @@ export class UserModerationDropdownComponent implements OnInit, OnChanges {
         {
           label: $localize`Set Email as Verified`,
           handler: ({ user }) => this.setEmailAsVerified(user),
-          isDisplayed: ({ user }) => this.requiresEmailVerification && !user.blocked && user.emailVerified === false
+          isDisplayed: ({ user }) => !user.blocked && user.emailVerified !== true
         }
       ])
     }
@@ -403,7 +409,7 @@ export class UserModerationDropdownComponent implements OnInit, OnChanges {
       ])
     }
 
-    if (this.account && this.displayOptions.instanceAccount && authUser.hasRight(UserRight.REMOVE_ANY_VIDEO_COMMENT)) {
+    if (this.account && this.displayOptions.instanceAccount && authUser.hasRight(UserRight.MANAGE_ANY_VIDEO_COMMENT)) {
       instanceActions = instanceActions.concat([
         {
           label: $localize`Remove comments from your instance`,

@@ -1,5 +1,4 @@
-import { Observable } from 'rxjs'
-import { getLocaleDirection } from '@angular/common'
+import { getLocaleDirection, NgClass, NgFor, NgIf } from '@angular/common'
 import {
   Component,
   ElementRef,
@@ -13,18 +12,44 @@ import {
   SimpleChanges,
   ViewChild
 } from '@angular/core'
+import { FormsModule, ReactiveFormsModule } from '@angular/forms'
 import { Notifier, User } from '@app/core'
 import { VIDEO_COMMENT_TEXT_VALIDATOR } from '@app/shared/form-validators/video-comment-validators'
-import { FormReactive, FormReactiveService } from '@app/shared/shared-forms'
-import { Video } from '@app/shared/shared-main'
-import { VideoComment, VideoCommentService } from '@app/shared/shared-video-comment'
+import { FormReactive } from '@app/shared/shared-forms/form-reactive'
+import { FormReactiveService } from '@app/shared/shared-forms/form-reactive.service'
+import { LoginLinkComponent } from '@app/shared/shared-main/users/login-link.component'
+import { Video } from '@app/shared/shared-main/video/video.model'
+import { VideoComment } from '@app/shared/shared-video-comment/video-comment.model'
+import { VideoCommentService } from '@app/shared/shared-video-comment/video-comment.service'
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap'
 import { VideoCommentCreate } from '@peertube/peertube-models'
+import { Observable } from 'rxjs'
+import { ActorAvatarComponent } from '../../../../shared/shared-actor-image/actor-avatar.component'
+import { TextareaAutoResizeDirective } from '../../../../shared/shared-forms/textarea-autoresize.directive'
+import { GlobalIconComponent } from '../../../../shared/shared-icons/global-icon.component'
+import { HelpComponent } from '../../../../shared/shared-main/buttons/help.component'
+import { PeerTubeTemplateDirective } from '../../../../shared/shared-main/common/peertube-template.directive'
+import { RemoteSubscribeComponent } from '../../../../shared/shared-user-subscription/remote-subscribe.component'
 
 @Component({
   selector: 'my-video-comment-add',
   templateUrl: './video-comment-add.component.html',
-  styleUrls: [ './video-comment-add.component.scss' ]
+  styleUrls: [ './video-comment-add.component.scss' ],
+  standalone: true,
+  imports: [
+    FormsModule,
+    ReactiveFormsModule,
+    ActorAvatarComponent,
+    TextareaAutoResizeDirective,
+    NgClass,
+    HelpComponent,
+    PeerTubeTemplateDirective,
+    NgIf,
+    GlobalIconComponent,
+    RemoteSubscribeComponent,
+    LoginLinkComponent,
+    NgFor
+  ]
 })
 export class VideoCommentAddComponent extends FormReactive implements OnChanges, OnInit {
   @Input() user: User
@@ -36,7 +61,7 @@ export class VideoCommentAddComponent extends FormReactive implements OnChanges,
   @Input() textValue?: string
 
   @Output() commentCreated = new EventEmitter<VideoComment>()
-  @Output() cancel = new EventEmitter()
+  @Output() cancelEdition = new EventEmitter()
 
   @ViewChild('visitorModal', { static: true }) visitorModal: NgbModal
   @ViewChild('emojiModal', { static: true }) emojiModal: NgbModal
@@ -85,7 +110,7 @@ export class VideoCommentAddComponent extends FormReactive implements OnChanges,
   getEmojiMarkupList () {
     if (this.emojiMarkupList) return this.emojiMarkupList
 
-    const emojiMarkupObjectList = require('markdown-it-emoji/lib/data/light.json')
+    const emojiMarkupObjectList = require('markdown-it-emoji/lib/data/light.mjs').default
 
     this.emojiMarkupList = []
     for (const name of Object.keys(emojiMarkupObjectList)) {
@@ -161,7 +186,7 @@ export class VideoCommentAddComponent extends FormReactive implements OnChanges,
   }
 
   cancelCommentReply () {
-    this.cancel.emit(null)
+    this.cancelEdition.emit(null)
     this.form.value['text'] = this.textareaElement.nativeElement.value = ''
   }
 

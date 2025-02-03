@@ -1,15 +1,17 @@
-import { Subject } from 'rxjs'
+import { NgIf } from '@angular/common'
 import { Component, Input, OnInit } from '@angular/core'
 import { AuthService, ConfirmService, Notifier, User } from '@app/core'
-import { TwoFactorService } from '@app/shared/shared-users'
+import { TwoFactorService } from '@app/shared/shared-users/two-factor.service'
+import { ButtonComponent } from '../../../shared/shared-main/buttons/button.component'
 
 @Component({
   selector: 'my-account-two-factor-button',
-  templateUrl: './my-account-two-factor-button.component.html'
+  templateUrl: './my-account-two-factor-button.component.html',
+  standalone: true,
+  imports: [ NgIf, ButtonComponent ]
 })
 export class MyAccountTwoFactorButtonComponent implements OnInit {
-  @Input() user: User = null
-  @Input() userInformationLoaded: Subject<any>
+  @Input() user: User
 
   twoFactorEnabled = false
 
@@ -22,9 +24,7 @@ export class MyAccountTwoFactorButtonComponent implements OnInit {
   }
 
   ngOnInit () {
-    this.userInformationLoaded.subscribe(() => {
-      this.twoFactorEnabled = this.user.twoFactorEnabled
-    })
+    this.twoFactorEnabled = this.user.twoFactorEnabled
   }
 
   async disableTwoFactor () {

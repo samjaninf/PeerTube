@@ -1,8 +1,3 @@
-<h1>
-  <my-global-icon iconName="user-x" aria-hidden="true"></my-global-icon>
-  <ng-container i18n>Muted accounts</ng-container>
-</h1>
-
 <p-table
   [value]="blockedAccounts" [lazy]="true" [paginator]="totalRecords > 0" [totalRecords]="totalRecords"
   [rows]="rowsPerPage" [rowsPerPageOptions]="rowsPerPageOptions" [first]="pagination.start"
@@ -19,16 +14,16 @@
 
   <ng-template pTemplate="header">
     <tr>
-      <th style="width: 150px;" i18n>Action</th> <!-- column for action buttons -->
-      <th i18n>Account</th>
-      <th style="width: 150px;" i18n pSortableColumn="createdAt">Muted at <p-sortIcon field="createdAt"></p-sortIcon></th>
+      <th scope="col" style="width: 150px;" i18n>Action</th> <!-- column for action buttons -->
+      <th scope="col" i18n>Account</th>
+      <th scope="col" style="width: 150px;" i18n [ngbTooltip]="sortTooltip" container="body" pSortableColumn="createdAt">Muted at <p-sortIcon field="createdAt"></p-sortIcon></th>
     </tr>
   </ng-template>
 
   <ng-template pTemplate="body" let-accountBlock>
     <tr>
       <td class="action-cell">
-        <button class="unblock-button" (click)="unblockAccount(accountBlock)" i18n>Unmute</button>
+        <button class="peertube-button secondary-button" (click)="unblockAccount(accountBlock)" i18n>Unmute</button>
       </td>
       <td>
         <a [href]="accountBlock.blockedAccount.url" i18n-title title="Open account in a new tab" target="_blank" rel="noopener noreferrer">
@@ -42,7 +37,7 @@
         </a>
       </td>
 
-      <td>{{ accountBlock.createdAt | date: 'short' }}</td>
+      <td>{{ accountBlock.createdAt | ptDate: 'short' }}</td>
     </tr>
   </ng-template>
 

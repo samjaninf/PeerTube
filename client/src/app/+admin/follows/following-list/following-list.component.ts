@@ -1,16 +1,39 @@
-import { SortMeta } from 'primeng/api'
+import { NgIf } from '@angular/common'
 import { Component, OnInit, ViewChild } from '@angular/core'
 import { ConfirmService, Notifier, RestPagination, RestTable } from '@app/core'
-import { AdvancedInputFilter } from '@app/shared/shared-forms'
-import { InstanceFollowService } from '@app/shared/shared-instance'
-import { ActorFollow } from '@peertube/peertube-models'
-import { FollowModalComponent } from './follow-modal.component'
-import { DropdownAction } from '@app/shared/shared-main'
 import { formatICU } from '@app/helpers'
+import { InstanceFollowService } from '@app/shared/shared-instance/instance-follow.service'
+import { PTDatePipe } from '@app/shared/shared-main/common/date.pipe'
+import { ActorFollow } from '@peertube/peertube-models'
+import { SharedModule, SortMeta } from 'primeng/api'
+import { TableModule } from 'primeng/table'
+import { AdvancedInputFilter, AdvancedInputFilterComponent } from '../../../shared/shared-forms/advanced-input-filter.component'
+import { GlobalIconComponent } from '../../../shared/shared-icons/global-icon.component'
+import { ActionDropdownComponent, DropdownAction } from '../../../shared/shared-main/buttons/action-dropdown.component'
+import { ButtonComponent } from '../../../shared/shared-main/buttons/button.component'
+import { DeleteButtonComponent } from '../../../shared/shared-main/buttons/delete-button.component'
+import { AutoColspanDirective } from '../../../shared/shared-main/common/auto-colspan.directive'
+import { RedundancyCheckboxComponent } from '../shared/redundancy-checkbox.component'
+import { FollowModalComponent } from './follow-modal.component'
 
 @Component({
   templateUrl: './following-list.component.html',
-  styleUrls: [ './following-list.component.scss' ]
+  styleUrls: [ './following-list.component.scss' ],
+  standalone: true,
+  imports: [
+    GlobalIconComponent,
+    TableModule,
+    SharedModule,
+    NgIf,
+    ActionDropdownComponent,
+    AdvancedInputFilterComponent,
+    DeleteButtonComponent,
+    RedundancyCheckboxComponent,
+    AutoColspanDirective,
+    FollowModalComponent,
+    PTDatePipe,
+    ButtonComponent
+  ]
 })
 export class FollowingListComponent extends RestTable <ActorFollow> implements OnInit {
   @ViewChild('followModal') followModal: FollowModalComponent

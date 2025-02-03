@@ -1,12 +1,9 @@
 <div class="margin-content">
-  <div class="title-page">
-    <span class="me-1" i18n>Update</span>
-    <a [routerLink]="getVideoUrl()">{{ videoDetails?.name }}</a>
-  </div>
+  <h1 class="title-page" i18n>Update {{ videoDetails?.name }}</h1>
 
   <my-upload-progress
-    [isUploadingVideo]="isReplacingVideoFile" [videoUploadPercents]="videoUploadPercents" [error]="uploadError" [videoUploaded]="updateDone"
-    [enableRetryAfterError]="false" (cancel)="cancelUpload()"
+    [isUploading]="isReplacingVideoFile" [uploadPercents]="videoUploadPercents" [error]="uploadError" [uploaded]="updateDone"
+    [enableRetryAfterError]="false" (cancelUpload)="cancelUpload()"
   >
   </my-upload-progress>
 
@@ -18,8 +15,9 @@
       [validationMessages]="validationMessages" [userVideoChannels]="userVideoChannels"
       [videoCaptions]="videoCaptions" [hideWaitTranscoding]="isWaitTranscodingHidden()"
       type="update" (pluginFieldsAdded)="hydratePluginFieldsFromVideo()"
-      [liveVideo]="liveVideo" [videoToUpdate]="videoDetails"
+      [liveVideo]="liveVideo" [publishedVideo]="videoDetails"
       [videoSource]="videoSource" [updateVideoFileEnabled]="isUpdateVideoFileEnabled()"
+      displayTranscriptionInfo="false"
 
       (formBuilt)="onFormBuilt()"
     >
@@ -42,9 +40,9 @@
     </my-video-edit>
 
     <div class="submit-container">
-      <my-button className="orange-button" i18n-label label="Update" icon="circle-tick"
-                 (click)="update()" (keydown.enter)="update()"
-                 [disabled]="!form.valid || isUpdatingVideo === true"
+      <my-button
+        theme="primary" i18n-label label="Update" icon="circle-tick" (click)="update()" (keydown.enter)="update()"
+        [disabled]="!form.valid || isUpdatingVideo === true"
       ></my-button>
     </div>
   </form>

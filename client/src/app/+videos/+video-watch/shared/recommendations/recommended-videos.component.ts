@@ -1,23 +1,31 @@
-import { Observable, startWith, Subscription, switchMap } from 'rxjs'
+import { AsyncPipe, NgClass, NgFor, NgIf } from '@angular/common'
 import { Component, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output } from '@angular/core'
+import { FormsModule } from '@angular/forms'
 import { AuthService, Notifier, User, UserService } from '@app/core'
-import { Video } from '@app/shared/shared-main'
-import { MiniatureDisplayOptions } from '@app/shared/shared-video-miniature'
-import { VideoPlaylist } from '@app/shared/shared-video-playlist'
-import { RecommendationInfo } from './recommendation-info.model'
-import { RecommendedVideosStore } from './recommended-videos.store'
+import { VideoDetails } from '@app/shared/shared-main/video/video-details.model'
+import { Video } from '@app/shared/shared-main/video/video.model'
+import { NgbTooltip } from '@ng-bootstrap/ng-bootstrap'
+import { VideoPlaylist } from '@peertube/peertube-models'
+import { Subscription, startWith, switchMap } from 'rxjs'
+import { InputSwitchComponent } from '../../../../shared/shared-forms/input-switch.component'
+import { MiniatureDisplayOptions, VideoMiniatureComponent } from '../../../../shared/shared-video-miniature/video-miniature.component'
+import { VideoRecommendationService } from './video-recommendation.service'
 
 @Component({
   selector: 'my-recommended-videos',
   templateUrl: './recommended-videos.component.html',
-  styleUrls: [ './recommended-videos.component.scss' ]
+  styleUrls: [ './recommended-videos.component.scss' ],
+  standalone: true,
+  imports: [ NgClass, NgIf, NgbTooltip, InputSwitchComponent, FormsModule, NgFor, VideoMiniatureComponent, AsyncPipe ]
 })
 export class RecommendedVideosComponent implements OnInit, OnChanges, OnDestroy {
-  @Input() inputRecommendation: RecommendationInfo
+  @Input() currentVideo: VideoDetails
   @Input() playlist: VideoPlaylist
   @Input() displayAsRow: boolean
 
   @Output() gotRecommendations = new EventEmitter<Video[]>()
+
+  videos: Video[] = []
 
   autoPlayNextVideo: boolean
   autoPlayNextVideoTooltip: string
@@ -33,19 +41,12 @@ export class RecommendedVideosComponent implements OnInit, OnChanges, OnDestroy 
 
   private userSub: Subscription
 
-  readonly hasVideos$: Observable<boolean>
-  readonly videos$: Observable<Video[]>
-
   constructor (
     private userService: UserService,
     private authService: AuthService,
     private notifier: Notifier,
-    private store: RecommendedVideosStore
+    private videoRecommendation: VideoRecommendationService
   ) {
-    this.videos$ = this.store.recommendations$
-    this.hasVideos$ = this.store.hasRecommendations$
-    this.videos$.subscribe(videos => this.gotRecommendations.emit(videos))
-
     this.autoPlayNextVideoTooltip = $localize`When active, the next video is automatically played after the current one.`
   }
 
@@ -62,8 +63,8 @@ export class RecommendedVideosComponent implements OnInit, OnChanges, OnDestroy 
   }
 
   ngOnChanges () {
-    if (this.inputRecommendation) {
-      this.store.requestNewRecommendations(this.inputRecommendation)
+    if (this.currentVideo) {
+      this.loadRecommendations()
     }
   }
 
@@ -72,7 +73,7 @@ export class RecommendedVideosComponent implements OnInit, OnChanges, OnDestroy 
   }
 
   onVideoRemoved () {
-    this.store.requestNewRecommendations(this.inputRecommendation)
+    this.loadRecommendations()
   }
 
   switchAutoPlayNextVideo () {
@@ -90,5 +91,18 @@ export class RecommendedVideosComponent implements OnInit, OnChanges, OnDestroy 
     } else {
       this.userService.updateMyAnonymousProfile(details)
     }
+  }
+
+  private loadRecommendations () {
+    this.videoRecommendation.getRecommendations(this.currentVideo, this.videoRecommendation.getRecommentationHistory())
+      .subscribe({
+        next: videos => {
+          this.videos = videos
+
+          this.gotRecommendations.emit(this.videos)
+        },
+
+        error: err => this.notifier.error(err.message)
+      })
   }
 }

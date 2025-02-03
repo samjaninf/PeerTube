@@ -1,12 +1,38 @@
-import { SortMeta } from 'primeng/api'
+import { NgClass, NgIf } from '@angular/common'
 import { Component, OnInit } from '@angular/core'
 import { Notifier, RestPagination, RestTable } from '@app/core'
-import { Video, VideoImportService } from '@app/shared/shared-main'
+import { PTDatePipe } from '@app/shared/shared-main/common/date.pipe'
+import { VideoImportService } from '@app/shared/shared-main/video/video-import.service'
+import { Video } from '@app/shared/shared-main/video/video.model'
+import { NgbTooltip } from '@ng-bootstrap/ng-bootstrap'
 import { VideoImport, VideoImportState, VideoImportStateType } from '@peertube/peertube-models'
+import { SharedModule, SortMeta } from 'primeng/api'
+import { TableModule } from 'primeng/table'
+import { AdvancedInputFilterComponent } from '../../shared/shared-forms/advanced-input-filter.component'
+import { ButtonComponent } from '../../shared/shared-main/buttons/button.component'
+import { DeleteButtonComponent } from '../../shared/shared-main/buttons/delete-button.component'
+import { EditButtonComponent } from '../../shared/shared-main/buttons/edit-button.component'
+import { AutoColspanDirective } from '../../shared/shared-main/common/auto-colspan.directive'
+import { TableExpanderIconComponent } from '../../shared/shared-tables/table-expander-icon.component'
 
 @Component({
   templateUrl: './my-video-imports.component.html',
-  styleUrls: [ './my-video-imports.component.scss' ]
+  styleUrls: [ './my-video-imports.component.scss' ],
+  standalone: true,
+  imports: [
+    AdvancedInputFilterComponent,
+    TableModule,
+    SharedModule,
+    NgbTooltip,
+    NgIf,
+    TableExpanderIconComponent,
+    ButtonComponent,
+    DeleteButtonComponent,
+    EditButtonComponent,
+    NgClass,
+    AutoColspanDirective,
+    PTDatePipe
+  ]
 })
 export class MyVideoImportsComponent extends RestTable implements OnInit {
   videoImports: VideoImport[] = []

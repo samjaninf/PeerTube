@@ -65,8 +65,8 @@ function buildConfig (suiteFile: string = undefined) {
       defaults: {
         publish: {
           download_enabled: false,
-          comments_enabled: false,
-          privacy: 4,
+          comments_policy: 2,
+          privacy: 2,
           licence: 4
         },
         p2p: {
@@ -89,6 +89,15 @@ function buildConfig (suiteFile: string = undefined) {
       smtp: {
         hostname: '127.0.0.1',
         port: emailPort
+      }
+    }
+  }
+
+  if (filename === 'video-password.e2e-spec.ts') {
+    return {
+      signup: {
+        enabled: true,
+        limit: -1
       }
     }
   }

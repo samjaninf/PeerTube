@@ -1,18 +1,19 @@
 import { AuthUser } from '@app/core'
 import { User } from '@app/core/users/user.model'
-import { durationToString, formatICU, getAbsoluteAPIUrl, getAbsoluteEmbedUrl } from '@app/helpers'
+import { durationToString, getAbsoluteAPIUrl, getAbsoluteEmbedUrl } from '@app/helpers'
 import { Actor } from '@app/shared/shared-main/account/actor.model'
 import { buildVideoWatchPath, getAllFiles, peertubeTranslate } from '@peertube/peertube-core-utils'
 import {
   ActorImage,
   HTMLServerConfig,
   UserRight,
-  Video as VideoServerModel,
   VideoConstant,
   VideoFile,
   VideoPrivacy,
   VideoPrivacyType,
   VideoScheduleUpdate,
+  Video as VideoServerModel,
+  VideoSource,
   VideoState,
   VideoStateType,
   VideoStreamingPlaylist,
@@ -49,6 +50,8 @@ export class Video implements VideoServerModel {
   serverHost: string
   thumbnailPath: string
   thumbnailUrl: string
+
+  aspectRatio: number
 
   isLive: boolean
 
@@ -109,12 +112,16 @@ export class Video implements VideoServerModel {
   streamingPlaylists?: VideoStreamingPlaylist[]
   files?: VideoFile[]
 
+  videoSource?: VideoSource
+
+  automaticTags?: string[]
+
   static buildWatchUrl (video: Partial<Pick<Video, 'uuid' | 'shortUUID'>>) {
     return buildVideoWatchPath({ shortUUID: video.shortUUID || video.uuid })
   }
 
-  static buildUpdateUrl (video: Pick<Video, 'uuid'>) {
-    return '/videos/update/' + video.uuid
+  static buildUpdateUrl (video: Partial<Pick<Video, 'uuid' | 'shortUUID'>>) {
+    return '/videos/update/' + (video.shortUUID || video.uuid)
   }
 
   constructor (hash: VideoServerModel, translations: { [ id: string ]: string } = {}) {
@@ -190,6 +197,7 @@ export class Video implements VideoServerModel {
 
     this.streamingPlaylists = hash.streamingPlaylists
     this.files = hash.files
+    this.videoSource = hash.videoSource
 
     this.userHistory = hash.userHistory
 
@@ -197,6 +205,10 @@ export class Video implements VideoServerModel {
     this.originInstanceUrl = 'https://' + this.originInstanceHost
 
     this.pluginData = hash.pluginData
+
+    this.aspectRatio = hash.aspectRatio
+
+    this.automaticTags = hash.automaticTags
   }
 
   isVideoNSFWForUser (user: User, serverConfig: HTMLServerConfig) {
@@ -232,8 +244,18 @@ export class Video implements VideoServerModel {
       this.isUpdatableBy(user)
   }
 
-  canSeeStats (user: AuthUser) {
-    return user && this.isLocal === true && (this.account.name === user.username || user.hasRight(UserRight.SEE_ALL_VIDEOS))
+  // ---------------------------------------------------------------------------
+
+  isOwner (user: AuthUser) {
+    return user && this.isLocal === true && this.account.name === user.username
+  }
+
+  hasSeeAllVideosRight (user: AuthUser) {
+    return user?.hasRight(UserRight.SEE_ALL_VIDEOS)
+  }
+
+  isOwnerOrHasSeeAllVideosRight (user: AuthUser) {
+    return this.isOwner(user) || this.hasSeeAllVideosRight(user)
   }
 
   canRemoveOneFile (user: AuthUser) {
@@ -243,7 +265,7 @@ export class Video implements VideoServerModel {
       getAllFiles(this).length > 1
   }
 
-  canRemoveFiles (user: AuthUser) {
+  canRemoveAllHLSOrWebFiles (user: AuthUser) {
     return this.isLocal &&
       user && user.hasRight(UserRight.MANAGE_VIDEO_FILES) &&
       this.state.id !== VideoState.TO_TRANSCODE &&
@@ -251,14 +273,35 @@ export class Video implements VideoServerModel {
       this.hasWebVideos()
   }
 
+  // ---------------------------------------------------------------------------
+
   canRunTranscoding (user: AuthUser) {
-    return this.canRunForcedTranscoding(user) && this.state.id !== VideoState.TO_TRANSCODE
+    return this.isLocal &&
+    !this.isLive &&
+    user?.hasRight(UserRight.RUN_VIDEO_TRANSCODING) &&
+    this.state?.id &&
+    !this.transcodingAndTranscriptionIncompatibleStates().has(this.state.id)
   }
 
-  canRunForcedTranscoding (user: AuthUser) {
-    return this.isLocal &&
-      user && user.hasRight(UserRight.RUN_VIDEO_TRANSCODING)
+  canGenerateTranscription (user: AuthUser, transcriptionEnabled: boolean) {
+    return transcriptionEnabled &&
+      this.isLocal &&
+      !this.isLive &&
+      user.hasRight(UserRight.UPDATE_ANY_VIDEO) &&
+      this.state?.id &&
+      !this.transcodingAndTranscriptionIncompatibleStates().has(this.state.id)
   }
+
+  private transcodingAndTranscriptionIncompatibleStates () {
+    return new Set<VideoStateType>([
+      VideoState.TO_IMPORT,
+      VideoState.TO_EDIT,
+      VideoState.TO_MOVE_TO_EXTERNAL_STORAGE,
+      VideoState.TO_MOVE_TO_FILE_SYSTEM
+    ])
+  }
+
+  // ---------------------------------------------------------------------------
 
   hasHLS () {
     return this.streamingPlaylists?.some(p => p.type === VideoStreamingPlaylistType.HLS)
@@ -282,13 +325,5 @@ export class Video implements VideoServerModel {
       user &&
       this.isLocal === true &&
       (this.account.name === user.username || user.hasRight(UserRight.SEE_ALL_VIDEOS))
-  }
-
-  getExactNumberOfViews () {
-    if (this.isLive) {
-      return formatICU($localize`{viewers, plural, =0 {No viewers} =1 {1 viewer} other {{viewers} viewers}}`, { viewers: this.viewers })
-    }
-
-    return formatICU($localize`{views, plural, =0 {No view} =1 {1 view} other {{views} views}}`, { views: this.views })
   }
 }

@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-expressions,@typescript-eslint/require-await */
 
-import { expect } from 'chai'
 import {
   HttpStatusCode,
+  MyUser,
   PeerTubeProblemDocument,
   VideoDetails,
   VideoImportState,
@@ -11,25 +11,28 @@ import {
   VideoPrivacy
 } from '@peertube/peertube-models'
 import {
+  PeerTubeServer,
+  PluginsCommand,
   cleanupTests,
   createMultipleServers,
   doubleFollow,
   makeActivityPubGetRequest,
   makeGetRequest,
   makeRawRequest,
-  PeerTubeServer,
-  PluginsCommand,
   setAccessTokensToServers,
   setDefaultVideoChannel,
   waitJobs
 } from '@peertube/peertube-server-commands'
-import { FIXTURE_URLS } from '../shared/tests.js'
+import { expectEndWith } from '@tests/shared/checks.js'
+import { expect } from 'chai'
+import { FIXTURE_URLS } from '../shared/fixture-urls.js'
 
 describe('Test plugin filter hooks', function () {
   let servers: PeerTubeServer[]
   let videoUUID: string
   let threadId: number
   let videoPlaylistUUID: string
+  let importUserToken: string
 
   before(async function () {
     this.timeout(120000)
@@ -60,7 +63,7 @@ describe('Test plugin filter hooks', function () {
     const { data } = await servers[0].videos.list()
     videoUUID = data[0].uuid
 
-    await servers[0].config.updateCustomSubConfig({
+    await servers[0].config.updateExistingConfig({
       newConfig: {
         live: { enabled: true },
         signup: { enabled: true },
@@ -78,8 +81,18 @@ describe('Test plugin filter hooks', function () {
       }
     })
 
+    {
+      const { userId, token } = await servers[0].users.generate('to_import')
+      importUserToken = token
+      await servers[0].users.update({ userId, videoQuota: -1, videoQuotaDaily: -1 })
+
+      await servers[0].userImports.importArchive({ userId, token, fixture: 'export-with-files.zip' })
+    }
+
     // Root subscribes to itself
     await servers[0].subscriptions.add({ targetUri: 'root_channel@' + servers[0].host })
+
+    await waitJobs(servers)
   })
 
   describe('Videos', function () {
@@ -95,7 +108,7 @@ describe('Test plugin filter hooks', function () {
       const { total } = await servers[0].videos.list({ start: 0, count: 0 })
 
       // Plugin do +1 to the total result
-      expect(total).to.equal(11)
+      expect(total).to.equal(12)
     })
 
     it('Should run filter:api.video-playlist.videos.list.params', async function () {
@@ -189,13 +202,13 @@ describe('Test plugin filter hooks', function () {
     })
 
     it('Should run filter:api.video.update-file.accept.result', async function () {
-      const res = await servers[0].videos.replaceSourceFile({
+      const body = await servers[0].videos.replaceSourceFile({
         videoId: videoUUID,
         fixture: 'video_short1.webm',
         completedExpectedStatus: HttpStatusCode.FORBIDDEN_403
       })
 
-      expect((res as any)?.error).to.equal('no webm')
+      expect((body as PeerTubeProblemDocument)?.detail).to.equal('no webm')
     })
 
     it('Should run filter:api.live-video.create.accept.result', async function () {
@@ -215,7 +228,7 @@ describe('Test plugin filter hooks', function () {
         channelId: servers[0].store.channel.id,
         targetUrl: FIXTURE_URLS.goodVideo + 'bad'
       }
-      await servers[0].imports.importVideo({ attributes, expectedStatus: HttpStatusCode.FORBIDDEN_403 })
+      await servers[0].videoImports.importVideo({ attributes, expectedStatus: HttpStatusCode.FORBIDDEN_403 })
     })
 
     it('Should run filter:api.video.pre-import-torrent.accept.result', async function () {
@@ -225,7 +238,7 @@ describe('Test plugin filter hooks', function () {
         channelId: servers[0].store.channel.id,
         torrentfile: 'video-720p.torrent' as any
       }
-      await servers[0].imports.importVideo({ attributes, expectedStatus: HttpStatusCode.FORBIDDEN_403 })
+      await servers[0].videoImports.importVideo({ attributes, expectedStatus: HttpStatusCode.FORBIDDEN_403 })
     })
 
     it('Should run filter:api.video.post-import-url.accept.result', async function () {
@@ -240,14 +253,14 @@ describe('Test plugin filter hooks', function () {
           channelId: servers[0].store.channel.id,
           targetUrl: FIXTURE_URLS.goodVideo
         }
-        const body = await servers[0].imports.importVideo({ attributes })
+        const body = await servers[0].videoImports.importVideo({ attributes })
         videoImportId = body.id
       }
 
       await waitJobs(servers)
 
       {
-        const body = await servers[0].imports.getMyVideoImports()
+        const body = await servers[0].videoImports.getMyVideoImports()
         const videoImports = body.data
 
         const videoImport = videoImports.find(i => i.id === videoImportId)
@@ -269,20 +282,28 @@ describe('Test plugin filter hooks', function () {
           channelId: servers[0].store.channel.id,
           torrentfile: 'video-720p.torrent' as any
         }
-        const body = await servers[0].imports.importVideo({ attributes })
+        const body = await servers[0].videoImports.importVideo({ attributes })
         videoImportId = body.id
       }
 
       await waitJobs(servers)
 
       {
-        const { data: videoImports } = await servers[0].imports.getMyVideoImports()
+        const { data: videoImports } = await servers[0].videoImports.getMyVideoImports()
 
         const videoImport = videoImports.find(i => i.id === videoImportId)
 
         expect(videoImport.state.id).to.equal(VideoImportState.REJECTED)
         expect(videoImport.state.label).to.equal('Rejected')
       }
+    })
+
+    it('Should run filter:api.video.user-import.video-attribute.result', async function () {
+      const { data } = await servers[0].videos.listMyVideos({ token: importUserToken })
+      expect(data).to.have.lengthOf(1)
+
+      // We filter out video 1 in the plugin
+      expect(data[0].name).to.not.equal('video 1')
     })
   })
 
@@ -413,7 +434,7 @@ describe('Test plugin filter hooks', function () {
         targetUrl: FIXTURE_URLS.goodVideo,
         channelId: servers[0].store.channel.id
       }
-      const body = await servers[0].imports.importVideo({ attributes })
+      const body = await servers[0].videoImports.importVideo({ attributes })
       await checkIsBlacklisted(body.video.uuid, true)
     })
 
@@ -449,10 +470,18 @@ describe('Test plugin filter hooks', function () {
     })
   })
 
+  describe('Users', function () {
+    it('Should run filter:api.user.me.get.result', async function () {
+      const user = await servers[0].users.getMyInfo() as MyUser & { customParam: string }
+
+      expect(user.customParam).to.equal('Customized')
+    })
+  })
+
   describe('Should run filter:api.user.signup.allowed.result', function () {
 
     before(async function () {
-      await servers[0].config.updateExistingSubConfig({ newConfig: { signup: { requiresApproval: false } } })
+      await servers[0].config.updateExistingConfig({ newConfig: { signup: { requiresApproval: false } } })
     })
 
     it('Should run on config endpoint', async function () {
@@ -470,14 +499,14 @@ describe('Test plugin filter hooks', function () {
         expectedStatus: HttpStatusCode.FORBIDDEN_403
       })
 
-      expect(res.body.error).to.equal('No jma 1')
+      expect((res.body as PeerTubeProblemDocument).detail).to.equal('No jma 1')
     })
   })
 
   describe('Should run filter:api.user.request-signup.allowed.result', function () {
 
     before(async function () {
-      await servers[0].config.updateExistingSubConfig({ newConfig: { signup: { requiresApproval: true } } })
+      await servers[0].config.updateExistingConfig({ newConfig: { signup: { requiresApproval: true } } })
     })
 
     it('Should run on config endpoint', async function () {
@@ -496,7 +525,7 @@ describe('Test plugin filter hooks', function () {
         expectedStatus: HttpStatusCode.FORBIDDEN_403
       })
 
-      expect((body as unknown as PeerTubeProblemDocument).error).to.equal('No jma 2')
+      expect((body as unknown as PeerTubeProblemDocument).detail).to.equal('No jma 2')
     })
   })
 
@@ -507,18 +536,7 @@ describe('Test plugin filter hooks', function () {
     before(async function () {
       this.timeout(120000)
 
-      await servers[0].config.updateCustomSubConfig({
-        newConfig: {
-          transcoding: {
-            webVideos: {
-              enabled: true
-            },
-            hls: {
-              enabled: true
-            }
-          }
-        }
-      })
+      await servers[0].config.enableMinimumTranscoding({ hls: true, webVideo: true })
 
       const uuids: string[] = []
 
@@ -538,7 +556,7 @@ describe('Test plugin filter hooks', function () {
 
     it('Should run filter:api.download.torrent.allowed.result', async function () {
       const res = await makeRawRequest({ url: downloadVideos[0].files[0].torrentDownloadUrl, expectedStatus: HttpStatusCode.FORBIDDEN_403 })
-      expect(res.body.error).to.equal('Liu Bei')
+      expect((res.body as PeerTubeProblemDocument).detail).to.equal('Liu Bei')
 
       await makeRawRequest({ url: downloadVideos[1].files[0].torrentDownloadUrl, expectedStatus: HttpStatusCode.OK_200 })
       await makeRawRequest({ url: downloadVideos[2].files[0].torrentDownloadUrl, expectedStatus: HttpStatusCode.OK_200 })
@@ -553,7 +571,7 @@ describe('Test plugin filter hooks', function () {
         ]
 
         const res = await makeRawRequest({ url: refused, expectedStatus: HttpStatusCode.FORBIDDEN_403 })
-        expect(res.body.error).to.equal('Cao Cao')
+        expect((res.body as PeerTubeProblemDocument).detail).to.equal('Cao Cao')
 
         for (const url of allowed) {
           await makeRawRequest({ url, expectedStatus: HttpStatusCode.OK_200 })
@@ -572,7 +590,7 @@ describe('Test plugin filter hooks', function () {
 
         // Only streaming playlist is refuse
         const res = await makeRawRequest({ url: refused, expectedStatus: HttpStatusCode.FORBIDDEN_403 })
-        expect(res.body.error).to.equal('Sun Jian')
+        expect((res.body as PeerTubeProblemDocument).detail).to.equal('Sun Jian')
 
         // But not we there is a user in res
         await makeRawRequest({ url: refused, token: servers[0].accessToken, expectedStatus: HttpStatusCode.OK_200 })
@@ -646,7 +664,7 @@ describe('Test plugin filter hooks', function () {
   describe('Search filters', function () {
 
     before(async function () {
-      await servers[0].config.updateCustomSubConfig({
+      await servers[0].config.updateExistingConfig({
         newConfig: {
           search: {
             searchIndex: {
@@ -739,7 +757,7 @@ describe('Test plugin filter hooks', function () {
 
     before(async function () {
       await servers[0].config.enableLive({ transcoding: false, allowReplay: false })
-      await servers[0].config.enableImports()
+      await servers[0].config.enableVideoImports()
       await servers[0].config.disableTranscoding()
     })
 
@@ -760,7 +778,7 @@ describe('Test plugin filter hooks', function () {
         targetUrl: FIXTURE_URLS.goodVideo,
         privacy: VideoPrivacy.PUBLIC
       }
-      const { video: { id } } = await servers[0].imports.importVideo({ attributes })
+      const { video: { id } } = await servers[0].videoImports.importVideo({ attributes })
 
       const video = await servers[0].videos.get({ id })
       expect(video.description).to.equal('import url - filter:api.video.import-url.video-attribute.result')
@@ -774,7 +792,7 @@ describe('Test plugin filter hooks', function () {
         magnetUri: FIXTURE_URLS.magnet,
         privacy: VideoPrivacy.PUBLIC
       }
-      const { video: { id } } = await servers[0].imports.importVideo({ attributes })
+      const { video: { id } } = await servers[0].videoImports.importVideo({ attributes })
 
       const video = await servers[0].videos.get({ id })
       expect(video.description).to.equal('import torrent - filter:api.video.import-torrent.video-attribute.result')
@@ -791,6 +809,16 @@ describe('Test plugin filter hooks', function () {
 
       const video = await servers[0].videos.get({ id })
       expect(video.description).to.equal('live - filter:api.video.live.video-attribute.result')
+    })
+
+    it('Should run filter:api.video.user-import.video-attribute.result', async function () {
+      this.timeout(60000)
+
+      const { data } = await servers[0].videos.listMyVideos({ token: importUserToken })
+
+      for (const video of data) {
+        expectEndWith(video.description, ' - filter:api.video.user-import.video-attribute.result')
+      }
     })
   })
 
@@ -876,7 +904,7 @@ describe('Test plugin filter hooks', function () {
       const { total } = await servers[0].channels.list({ start: 0, count: 1 })
 
       // plugin do +1 to the total parameter
-      expect(total).to.equal(4)
+      expect(total).to.equal(6)
     })
 
     it('Should run filter:api.video-channel.get.result', async function () {

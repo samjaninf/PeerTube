@@ -1,6 +1,9 @@
-import { Component, ElementRef, forwardRef, Input, ViewChild } from '@angular/core'
-import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms'
+import { AfterViewInit, Component, ElementRef, forwardRef, Input, ViewChild } from '@angular/core'
+import { ControlValueAccessor, NG_VALUE_ACCESSOR, FormsModule } from '@angular/forms'
 import { FormReactiveErrors } from './form-reactive.service'
+import { CopyButtonComponent } from '../shared-main/buttons/copy-button.component'
+import { GlobalIconComponent } from '../shared-icons/global-icon.component'
+import { NgClass, NgIf } from '@angular/common'
 
 @Component({
   selector: 'my-input-text',
@@ -12,12 +15,15 @@ import { FormReactiveErrors } from './form-reactive.service'
       useExisting: forwardRef(() => InputTextComponent),
       multi: true
     }
-  ]
+  ],
+  standalone: true,
+  imports: [ FormsModule, NgClass, NgIf, GlobalIconComponent, CopyButtonComponent ]
 })
-export class InputTextComponent implements ControlValueAccessor {
+export class InputTextComponent implements ControlValueAccessor, AfterViewInit {
   @ViewChild('input') inputElement: ElementRef
 
-  @Input() inputId = Math.random().toString(11).slice(2, 8) // id cannot be left empty or undefined
+  @Input({ required: true }) inputId: string
+
   @Input() value = ''
   @Input() autocomplete = 'off'
   @Input() placeholder = ''
@@ -27,6 +33,8 @@ export class InputTextComponent implements ControlValueAccessor {
   @Input() readonly = false
   @Input() show = false
   @Input() formError: string | FormReactiveErrors | FormReactiveErrors[]
+  @Input() autofocus = false
+  @Input() ariaLabel: string
 
   get inputType () {
     return this.show
@@ -38,6 +46,12 @@ export class InputTextComponent implements ControlValueAccessor {
     return this.show
       ? $localize`Hide`
       : $localize`Show`
+  }
+
+  ngAfterViewInit () {
+    if (this.autofocus !== true) return
+
+    this.inputElement.nativeElement.focus({ preventScroll: true })
   }
 
   toggle () {

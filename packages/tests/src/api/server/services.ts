@@ -74,7 +74,7 @@ describe('Test services', function () {
         const oembedUrl = server.url + basePath + video.uuid + suffix.input
 
         const res = await server.services.getOEmbed({ oembedUrl })
-        const expectedHtml = '<iframe width="560" height="315" sandbox="allow-same-origin allow-scripts allow-popups" ' +
+        const expectedHtml = '<iframe width="560" height="315" sandbox="allow-same-origin allow-scripts allow-popups allow-forms" ' +
           `title="${video.name}" src="http://${server.host}/videos/embed/${video.uuid}${suffix.output}" ` +
           'frameborder="0" allowfullscreen></iframe>'
 
@@ -98,7 +98,7 @@ describe('Test services', function () {
         const oembedUrl = server.url + basePath + playlistUUID + suffix.input
 
         const res = await server.services.getOEmbed({ oembedUrl })
-        const expectedHtml = '<iframe width="560" height="315" sandbox="allow-same-origin allow-scripts allow-popups" ' +
+        const expectedHtml = '<iframe width="560" height="315" sandbox="allow-same-origin allow-scripts allow-popups allow-forms" ' +
           `title="${playlistDisplayName}" src="http://${server.host}/video-playlists/embed/${playlistUUID}${suffix.output}" ` +
           'frameborder="0" allowfullscreen></iframe>'
 
@@ -114,6 +114,18 @@ describe('Test services', function () {
     }
   })
 
+  it('Should have a oEmbed response with query params', async function () {
+    const query = '?start=1m2s&stop=2'
+    const oembedUrl = `http://${server.host}/w/${video.uuid}${query}&unknown=3`
+    const res = await server.services.getOEmbed({ oembedUrl })
+
+    const expectedHtml = '<iframe width="560" height="315" sandbox="allow-same-origin allow-scripts allow-popups allow-forms" ' +
+      `title="${video.name}" src="http://${server.host}/videos/embed/${video.uuid}${query}" ` +
+      'frameborder="0" allowfullscreen></iframe>'
+
+    expect(res.body.html).to.equal(expectedHtml)
+  })
+
   it('Should have a valid oEmbed response with small max height query', async function () {
     for (const basePath of [ '/videos/watch/', '/w/' ]) {
       const oembedUrl = 'http://' + server.host + basePath + video.uuid
@@ -122,7 +134,7 @@ describe('Test services', function () {
       const maxWidth = 50
 
       const res = await server.services.getOEmbed({ oembedUrl, format, maxHeight, maxWidth })
-      const expectedHtml = '<iframe width="50" height="50" sandbox="allow-same-origin allow-scripts allow-popups" ' +
+      const expectedHtml = '<iframe width="50" height="50" sandbox="allow-same-origin allow-scripts allow-popups allow-forms" ' +
         `title="${video.name}" src="http://${server.host}/videos/embed/${video.uuid}" ` +
         'frameborder="0" allowfullscreen></iframe>'
 

@@ -1,16 +1,18 @@
+<h1 class="visually-hidden" i18n>Videos from your subscriptions</h1>
+
 <my-videos-list
   [getVideosObservableFunction]="getVideosObservableFunction"
   [getSyndicationItemsFunction]="getSyndicationItemsFunction"
 
-  [title]="titlePage"
-
   [defaultSort]="defaultSort"
 
-  [displayFilters]="false"
-  [displayModerationBlock]="false"
+  displayFilters="false"
+  displayModerationBlock="false"
 
-  [loadUserVideoPreferences]="false"
-  [groupByDate]="true"
+  loadUserVideoPreferences="false"
+  groupByDate="true"
+
+  highlightLives="false"
 
   [disabled]="disabled"
 

@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, Input } from '@angular/core'
-import { VideoChannel } from '../../shared-main'
 import { CustomMarkupComponent } from './shared'
+import { NgClass } from '@angular/common'
+import { VideoChannel } from '@app/shared/shared-main/channel/video-channel.model'
 
 /*
  * Markup component that creates a button
@@ -10,7 +11,9 @@ import { CustomMarkupComponent } from './shared'
   selector: 'my-button-markup',
   templateUrl: 'button-markup.component.html',
   styleUrls: [ 'button-markup.component.scss' ],
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  standalone: true,
+  imports: [ NgClass ]
 })
 export class ButtonMarkupComponent implements CustomMarkupComponent {
   @Input() theme: 'primary' | 'secondary'
@@ -29,8 +32,8 @@ export class ButtonMarkupComponent implements CustomMarkupComponent {
 
   getClasses () {
     const additionalClass = this.theme === 'primary'
-      ? 'orange-button'
-      : 'grey-button'
+      ? 'primary-button'
+      : 'secondary-button'
 
     return [ 'peertube-button-link', additionalClass ]
   }

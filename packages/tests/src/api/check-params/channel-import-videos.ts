@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-expressions,@typescript-eslint/require-await */
 
-import { FIXTURE_URLS } from '@tests/shared/tests.js'
+import { FIXTURE_URLS } from '@tests/shared/fixture-urls.js'
 import { areHttpImportTestsDisabled } from '@peertube/peertube-node-utils'
 import { HttpStatusCode } from '@peertube/peertube-models'
 import {
@@ -35,7 +35,7 @@ describe('Test videos import in a channel API validator', function () {
     await setAccessTokensToServers([ server ])
     await setDefaultVideoChannel([ server ])
 
-    await server.config.enableImports()
+    await server.config.enableVideoImports()
     await server.config.enableChannelSync()
 
     const userCreds = {
@@ -68,7 +68,7 @@ describe('Test videos import in a channel API validator', function () {
 
   it('Should fail when HTTP upload is disabled', async function () {
     await server.config.disableChannelSync()
-    await server.config.disableImports()
+    await server.config.disableVideoImports()
 
     await command.importVideos({
       channelName: server.store.channel.name,
@@ -77,7 +77,7 @@ describe('Test videos import in a channel API validator', function () {
       expectedStatus: HttpStatusCode.FORBIDDEN_403
     })
 
-    await server.config.enableImports()
+    await server.config.enableVideoImports()
   })
 
   it('Should fail when externalChannelUrl is not provided', async function () {

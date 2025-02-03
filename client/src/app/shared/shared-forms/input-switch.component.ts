@@ -11,12 +11,14 @@ import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms'
       useExisting: forwardRef(() => InputSwitchComponent),
       multi: true
     }
-  ]
+  ],
+  standalone: true
 })
 export class InputSwitchComponent implements ControlValueAccessor {
   @Input() checked = false
   @Input() inputName: string
   @Input() preventUpdate = false
+  @Input() label = $localize`Toggle`
 
   propagateChange = (_: any) => { /* empty */ }
 

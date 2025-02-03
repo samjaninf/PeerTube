@@ -40,14 +40,22 @@ export class PlayerPage {
 
     await browser.waitUntil(async () => {
       return (await this.getWatchVideoPlayerCurrentTime()) >= waitUntilSec
-    })
+    }, { timeout: Math.max(waitUntilSec * 2 * 1000, 30000) })
 
     // Pause video
     await $('div.video-js').click()
   }
 
   async playVideo () {
-    await $('div.video-js.vjs-paused').waitForExist()
+    await $('div.video-js.vjs-paused, div.video-js.vjs-playing').waitForExist()
+
+    if (await $('div.video-js.vjs-playing').isExisting()) {
+      if (!isIOS()) return
+
+      // On iOS, the web browser may have aborted player autoplay, so check the video is still autoplayed
+      await browserSleep(5000)
+      if (await $('div.video-js.vjs-playing').isExisting()) return
+    }
 
     // Autoplay is disabled on iOS and Safari
     if (isIOS() || isSafari() || isMobileDevice()) {

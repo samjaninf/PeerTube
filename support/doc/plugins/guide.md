@@ -33,6 +33,7 @@ Example:
 
 ```js
 async function register ({
+  doAction,
   registerHook,
 
   registerSetting,
@@ -106,6 +107,8 @@ function register ({ registerHook, peertubeHelpers }) {
 }
 ```
 
+See the [plugin API reference](https://docs.joinpeertube.org/api/plugins) to see the complete hooks list.
+
 ### Static files
 
 Plugins can declare static directories that PeerTube will serve (images for example)
@@ -126,6 +129,8 @@ body#custom-css {
   background-color: red;
 }
 ```
+
+See the [CSS variables section](#css-variables) to also have details on how to easily theme PeerTube.
 
 ### Server API (only for plugins)
 
@@ -247,7 +252,7 @@ function register ({
   router.get('/ping', (req, res) => res.json({ message: 'pong' }))
 
   // Users are automatically authenticated
-  router.get('/auth', async (res, res) => {
+  router.get('/auth', async (req, res) => {
     const user = await peertubeHelpers.user.getAuthUser(res)
 
     const isAdmin = user.role === 0
@@ -261,6 +266,15 @@ function register ({
       isUser
     })
   })
+
+  router.post('/webhook', async (req, res) => {
+    const rawBody = req.rawBody // Buffer containing the raw body
+
+    handleRawBody(rawBody)
+
+    res.status(204)
+  })
+
 }
 ```
 
@@ -644,7 +658,7 @@ function register (...) {
 
 **PeerTube >= 3.2**
 
-To make your own HTTP requests using the current authenticated user, use an helper to automatically set appropriate headers:
+To make your own HTTP requests using the current authenticated user, use a helper to automatically set appropriate headers:
 
 ```js
 function register (...) {
@@ -784,10 +798,10 @@ async function register ({
   // Store data associated to this video
   registerHook({
     target: 'action:api.video.updated',
-    handler: ({ video, body }) => {
-      if (!body.pluginData) return
+    handler: ({ video, req }) => {
+      if (!req.body.pluginData) return
 
-      const value = body.pluginData[fieldName]
+      const value = req.body.pluginData[fieldName]
       if (!value) return
 
       storageManager.storeData(fieldName + '-' + video.id, value)
@@ -851,6 +865,37 @@ async function register (...) {
 
 See the complete list on https://docs.joinpeertube.org/api/plugins
 
+#### CSS variables
+
+PeerTube can be easily themed using built-in CSS variables. The full list is available in [client/src/sass/include/_variables.scss](https://github.com/Chocobozzz/PeerTube/blob/develop/client/src/sass/include/_variables.scss).
+
+PeerTube creates gradients of some CSS variables so you don't have to specify all variables yourself. For example, just specify `--bg-secondary` and PeerTube will generate `--bg-secondary-450`, `--bg-secondary-400` and so on.
+
+You can take inspiration from core PeerTube themes in [client/src/sass/application.scss](https://github.com/Chocobozzz/PeerTube/blob/develop/client/src/sass/application.scss) file:
+
+```css
+body {
+  --primary: #FD9C50;
+  --on-primary: #111;
+  --border-primary: #F2690D;
+
+  --input-bg: var(--bg-secondary-450);
+  --input-bg-in-secondary: var(--bg-secondary-500);
+
+  --fg: hsl(0 10% 96%);
+
+  --bg: hsl(0 14% 7%);
+  --bg-secondary: hsl(0 14% 22%);
+
+  --alert-primary-fg: var(--on-primary);
+  --alert-primary-bg: #cd9e7a;
+  --alert-primary-border-color: var(--primary-600);
+
+  --active-icon-color: var(--fg-450);
+  --active-icon-bg: var(--bg-secondary-600);
+}
+```
+
 #### Add/remove left menu links
 
 Left menu links can be filtered (add/remove a section or add/remove links) using the `filter:left-menu.links.create.result` client hook.
@@ -863,6 +908,11 @@ To create a client page, register a new client route:
 function register ({ registerClientRoute }) {
   registerClientRoute({
     route: 'my-super/route',
+    title: 'Page title for this route',
+    parentRoute: '/my-account', // Optional. The full path will be /my-account/p/my-super/route.
+    menuItem: { // Optional. This will add a menu item to this route. Only supported when parentRoute is '/my-account'.
+      label: 'Sub route',
+    },
     onMount: ({ rootEl }) => {
       rootEl.innerHTML = 'hello'
     }
@@ -870,7 +920,40 @@ function register ({ registerClientRoute }) {
 }
 ```
 
-You can then access the page on `/p/my-super/route` (please note the additionnal `/p/` in the path).
+You can then access the page on `/p/my-super/route` (please note the additional `/p/` in the path).
+
+#### Run actions
+
+Plugin can trigger actions in the client by calling `doAction` with a specific action.
+This can be used in combination with a hook to add custom admin actions, for instance:
+
+```js
+function register ({ registerHook, doAction }) {
+  registerHook({
+    target: 'filter:admin-video-comments-list.bulk-actions.create.result',
+    handler: async menuItems => {
+      return menuItems.concat(
+      [
+        {
+          label: 'Mark as spam',
+          description: 'Report as spam and delete user.',
+          handler: async (comments) => {
+            // Show the loader
+            doAction('application:increment-loader')
+            // Run custom function
+            await deleteCommentsAndMarkAsSpam(comments)
+            // Reload the list in order for the admin to see the updated list
+            await doAction('admin-video-comments-list:load-data')
+          },
+          isDisplayed: (users) => true,
+        }
+      ])
+    }
+  })
+}
+```
+
+See the [plugin API reference](https://docs.joinpeertube.org/api/plugins) to see the complete `doAction` list.
 
 ### Publishing
 
@@ -1120,7 +1203,7 @@ you can deprecate it. The plugin index will automatically remove it preventing u
 npm deprecate peertube-plugin-xxx@"> 0.0.0" "explain here why you deprecate your plugin/theme"
 ```
 
-## Plugin & Theme hooks/helpers API
+## Plugin & Theme hooks/actions/helpers API
 
 See the dedicated documentation: https://docs.joinpeertube.org/api/plugins
 
@@ -1159,6 +1242,11 @@ If you want to create an antispam/moderation plugin, you could use the following
  * `filter:api.video-threads.list.result`: to change/hide the text of threads
  * `filter:api.video-thread-comments.list.result`: to change/hide the text of replies
  * `filter:video.auto-blacklist.result`: to automatically blacklist local or remote videos
+ * `filter:admin-users-list.bulk-actions.create.result`: to add bulk actions in the admin users list
+ * `filter:admin-video-comments-list.actions.create.result`: to add actions in the admin video comments list
+ * `filter:admin-video-comments-list.bulk-actions.create.result`: to add bulk actions in the admin video comments list
+ * `filter:user-moderation.actions.create.result`: to add actions in the user moderation dropdown (available in multiple views)
+ * `filter:admin-abuse-list.actions.create.result`: to add actions in the admin abuse list
 
 ### Other plugin examples
 

@@ -51,15 +51,13 @@ describe('Videos list', () => {
 
   async function checkCommonVideoListPages (policy: NSFWPolicy) {
     const promisesWithFilters = [
-      videoListPage.goOnRootAccount,
-      videoListPage.goOnLocal,
-      videoListPage.goOnRecentlyAdded,
-      videoListPage.goOnTrending,
-      videoListPage.goOnRootChannel
+      videoListPage.goOnRootAccount.bind(videoListPage),
+      videoListPage.goOnBrowseVideos.bind(videoListPage),
+      videoListPage.goOnRootChannel.bind(videoListPage)
     ]
 
     for (const p of promisesWithFilters) {
-      await p.call(videoListPage)
+      await p()
 
       const filter = await videoListPage.getNSFWFilter()
       const filterText = await filter.getText()
@@ -69,11 +67,11 @@ describe('Videos list', () => {
     }
 
     const promisesWithoutFilters = [
-      videoListPage.goOnRootAccountChannels,
-      videoListPage.goOnHomepage
+      videoListPage.goOnRootAccountChannels.bind(videoListPage),
+      videoListPage.goOnHomepage.bind(videoListPage)
     ]
     for (const p of promisesWithoutFilters) {
-      await p.call(videoListPage)
+      await p()
 
       await checkNormalVideo()
       await checkNSFWVideo(policy)

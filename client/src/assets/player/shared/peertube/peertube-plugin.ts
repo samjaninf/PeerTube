@@ -1,15 +1,17 @@
-import debug from 'debug'
-import videojs from 'video.js'
 import { timeToInt } from '@peertube/peertube-core-utils'
 import { VideoView, VideoViewEvent } from '@peertube/peertube-models'
 import { logger } from '@root-helpers/logger'
 import { isIOS, isMobile, isSafari } from '@root-helpers/web-browser'
+import debug from 'debug'
+import videojs from 'video.js'
 import {
+  getPlayerSessionId,
   getStoredLastSubtitle,
   getStoredMute,
   getStoredVolume,
   saveLastSubtitle,
   saveMuteInStore,
+  savePreferredSubtitle,
   saveVideoWatchHistory,
   saveVolumeInStore
 } from '../../peertube-player-local-storage'
@@ -21,31 +23,40 @@ const debugLogger = debug('peertube:player:peertube')
 const Plugin = videojs.getPlugin('plugin')
 
 class PeerTubePlugin extends Plugin {
-  private readonly videoViewUrl: () => string
-  private readonly authorizationHeader: () => string
-  private readonly initialInactivityTimeout: number
+  declare private readonly videoViewUrl: () => string
+  declare private readonly authorizationHeader: () => string
+  declare private readonly initialInactivityTimeout: number
 
-  private readonly hasAutoplay: () => videojs.Autoplay
+  declare private readonly hasAutoplay: () => videojs.Autoplay
 
-  private currentSubtitle: string
-  private currentPlaybackRate: number
+  declare private currentSubtitle: string
+  declare private currentPlaybackRate: number
 
-  private videoViewInterval: any
+  declare private videoViewInterval: any
 
-  private menuOpened = false
-  private mouseInControlBar = false
-  private mouseInSettings = false
+  declare private menuOpened: boolean
+  declare private mouseInControlBar: boolean
+  declare private mouseInSettings: boolean
 
-  private errorModal: videojs.ModalDialog
+  declare private errorModal: videojs.ModalDialog
 
-  private videoViewOnPlayHandler: (...args: any[]) => void
-  private videoViewOnSeekedHandler: (...args: any[]) => void
-  private videoViewOnEndedHandler: (...args: any[]) => void
+  declare private hasInitialSeek: boolean
 
-  private stopTimeHandler: (...args: any[]) => void
+  declare private videoViewOnPlayHandler: (...args: any[]) => void
+  declare private videoViewOnSeekedHandler: (...args: any[]) => void
+  declare private videoViewOnEndedHandler: (...args: any[]) => void
+
+  declare private stopTimeHandler: (...args: any[]) => void
+
+  declare private resizeObserver: ResizeObserver
 
   constructor (player: videojs.Player, private readonly options: PeerTubePluginOptions) {
     super(player)
+
+    this.menuOpened = false
+    this.mouseInControlBar = false
+    this.mouseInSettings = false
+    this.hasInitialSeek = false
 
     this.videoViewUrl = options.videoViewUrl
     this.authorizationHeader = options.authorizationHeader
@@ -57,6 +68,8 @@ class PeerTubePlugin extends Plugin {
 
     this.initializePlayer()
     this.initOnVideoChange()
+
+    this.player.removeClass('vjs-can-play')
 
     this.deleteLegacyIndexedDB()
 
@@ -85,6 +98,8 @@ class PeerTubePlugin extends Plugin {
 
       const muted = playerOptions.muted !== undefined ? playerOptions.muted : getStoredMute()
       if (muted !== undefined) this.player.muted(muted)
+
+      this.player.addClass('vjs-can-play')
     })
 
     this.player.ready(() => {
@@ -105,8 +120,11 @@ class PeerTubePlugin extends Plugin {
           return
         }
 
+        if (this.currentSubtitle === showing.language) return
+
         this.currentSubtitle = showing.language
         saveLastSubtitle(showing.language)
+        savePreferredSubtitle(showing.language)
       })
 
       this.player.on('video-change', () => {
@@ -114,6 +132,25 @@ class PeerTubePlugin extends Plugin {
 
         this.hideFatalError()
       })
+
+      this.updatePlayerSizeClasses()
+
+      if (typeof ResizeObserver !== 'undefined') {
+        this.resizeObserver = new ResizeObserver(() => {
+          this.updatePlayerSizeClasses()
+        })
+
+        this.resizeObserver.observe(this.player.el())
+      }
+    })
+
+    this.player.on('resolution-change', (_: any, { resolution }: { resolution: number }) => {
+      if (this.player.paused()) {
+        this.player.on('play', () => this.adaptPosterForAudioOnly(resolution))
+        return
+      }
+
+      this.adaptPosterForAudioOnly(resolution)
     })
 
     this.initOnRatioChange()
@@ -121,6 +158,7 @@ class PeerTubePlugin extends Plugin {
 
   dispose () {
     if (this.videoViewInterval) clearInterval(this.videoViewInterval)
+    if (this.resizeObserver) this.resizeObserver.disconnect()
 
     super.dispose()
   }
@@ -168,6 +206,13 @@ class PeerTubePlugin extends Plugin {
     this.errorModal.addClass('vjs-custom-error-display')
 
     this.player.addClass('vjs-error-display-enabled')
+
+    // Google Bot may throw codecs, but it should not prevent indexing
+    if (/googlebot/i.test(navigator.userAgent)) {
+      console.error(this.player.error())
+    } else {
+      logger.error('Fatal error in player', this.player.error())
+    }
   }
 
   hideFatalError () {
@@ -179,6 +224,10 @@ class PeerTubePlugin extends Plugin {
     this.player.removeChild(this.errorModal)
     this.errorModal.close()
     this.errorModal = undefined
+
+    if (this.player.loadingSpinner) {
+      this.player.loadingSpinner.show()
+    }
   }
 
   private initializePlayer () {
@@ -217,18 +266,41 @@ class PeerTubePlugin extends Plugin {
 
     const defaultRatio = getComputedStyle(this.player.el()).getPropertyValue(this.options.autoPlayerRatio.cssRatioVariable)
 
+    const tryToUpdateRatioFromOptions = () => {
+      if (!this.options.videoRatio()) return
+
+      this.adaptPlayerFromRatio({ ratio: this.options.videoRatio(), defaultRatio })
+      this.updatePlayerSizeClasses()
+    }
+
+    tryToUpdateRatioFromOptions()
+
+    this.player.on('video-change', () => tryToUpdateRatioFromOptions())
+
     this.player.on('video-ratio-changed', (_event, data: { ratio: number }) => {
-      const el = this.player.el() as HTMLElement
+      if (this.options.videoRatio()) return
 
-      // In portrait screen mode, we allow player with bigger height size than width
-      const portraitMode = getComputedStyle(el).getPropertyValue(this.options.autoPlayerRatio.cssPlayerPortraitModeVariable) === '1'
-
-      const currentRatio = !portraitMode && data.ratio < 1
-        ? defaultRatio
-        : data.ratio
-
-      el.style.setProperty('--player-ratio', currentRatio + '')
+      this.adaptPlayerFromRatio({ ratio: data.ratio, defaultRatio })
+      this.updatePlayerSizeClasses()
     })
+  }
+
+  private adaptPlayerFromRatio (options: {
+    ratio: number
+    defaultRatio: string
+  }) {
+    const { ratio, defaultRatio } = options
+
+    const el = this.player.el() as HTMLElement
+
+    // In portrait screen mode, we allow player with bigger height size than width
+    const portraitMode = getComputedStyle(el).getPropertyValue(this.options.autoPlayerRatio.cssPlayerPortraitModeVariable) === '1'
+
+    const currentRatio = isNaN(ratio) || (!portraitMode && ratio < 1)
+      ? defaultRatio
+      : ratio
+
+    el.style.setProperty('--player-ratio', currentRatio + '')
   }
 
   // ---------------------------------------------------------------------------
@@ -238,28 +310,49 @@ class PeerTubePlugin extends Plugin {
 
     let lastCurrentTime = startTime
     let lastViewEvent: VideoViewEvent
+    let ended = false // player.ended() is too "slow", so store ended state manually
 
-    if (this.videoViewInterval) clearInterval(this.videoViewInterval)
-    if (this.videoViewOnPlayHandler) this.player.off('play', this.videoViewOnPlayHandler)
-    if (this.videoViewOnSeekedHandler) this.player.off('seeked', this.videoViewOnSeekedHandler)
-    if (this.videoViewOnEndedHandler) this.player.off('ended', this.videoViewOnEndedHandler)
+    this.disableUserViewing()
 
     this.videoViewOnPlayHandler = () => {
+      debugLogger('Notify user is watching on play: ' + startTime)
+
       this.notifyUserIsWatching(startTime, lastViewEvent)
     }
 
     this.videoViewOnSeekedHandler = () => {
-      const diff = Math.floor(this.player.currentTime()) - lastCurrentTime
+      // Bypass the first initial seek
+      if (this.hasInitialSeek) {
+        this.hasInitialSeek = false
+        return
+      }
+
+      const currentTime = Math.floor(this.player.currentTime())
+      if (currentTime === 0 && this.player.loop()) {
+        debugLogger('Disabling viewing notification after first video loop.')
+        this.disableUserViewing()
+        return
+      }
+
+      const diff = currentTime - lastCurrentTime
 
       // Don't take into account small forwards
       if (diff > 0 && diff < 3) return
+
+      debugLogger('Detected seek event for user watching')
 
       lastViewEvent = 'seek'
     }
 
     this.videoViewOnEndedHandler = () => {
+      ended = true
+
+      if (this.options.isLive()) return
+
       const currentTime = Math.floor(this.player.duration())
       lastCurrentTime = currentTime
+
+      debugLogger('Notify user is watching on end: ' + currentTime)
 
       this.notifyUserIsWatching(currentTime, lastViewEvent)
 
@@ -271,10 +364,14 @@ class PeerTubePlugin extends Plugin {
     this.player.one('ended', this.videoViewOnEndedHandler)
 
     this.videoViewInterval = setInterval(() => {
+      if (ended) return
+
       const currentTime = Math.floor(this.player.currentTime())
 
       // No need to update
       if (currentTime === lastCurrentTime) return
+
+      debugLogger('Notify user is watching: ' + currentTime)
 
       lastCurrentTime = currentTime
 
@@ -285,20 +382,81 @@ class PeerTubePlugin extends Plugin {
     }, this.options.videoViewIntervalMs)
   }
 
+  private disableUserViewing () {
+    if (this.videoViewInterval) {
+      clearInterval(this.videoViewInterval)
+      this.videoViewInterval = undefined
+    }
+
+    if (this.videoViewOnPlayHandler) {
+      this.player.off('play', this.videoViewOnPlayHandler)
+      this.videoViewOnPlayHandler = undefined
+    }
+
+    if (this.videoViewOnSeekedHandler) {
+      this.player.off('seeked', this.videoViewOnSeekedHandler)
+      this.videoViewOnSeekedHandler = undefined
+    }
+
+    if (this.videoViewOnEndedHandler) {
+      this.player.off('ended', this.videoViewOnEndedHandler)
+      this.videoViewOnEndedHandler = undefined
+    }
+  }
+
   private notifyUserIsWatching (currentTime: number, viewEvent: VideoViewEvent) {
     // Server won't save history, so save the video position in local storage
     if (!this.authorizationHeader()) {
       saveVideoWatchHistory(this.options.videoUUID(), currentTime)
     }
 
-    if (!this.videoViewUrl) return Promise.resolve(true)
+    if (!this.videoViewUrl()) return Promise.resolve(true)
 
-    const body: VideoView = { currentTime, viewEvent }
+    const sessionId = getPlayerSessionId()
+
+    const body: VideoView = { currentTime, viewEvent, sessionId }
 
     const headers = new Headers({ 'Content-type': 'application/json; charset=UTF-8' })
     if (this.authorizationHeader()) headers.set('Authorization', this.authorizationHeader())
 
     return fetch(this.videoViewUrl(), { method: 'POST', body: JSON.stringify(body), headers })
+  }
+
+  // ---------------------------------------------------------------------------
+
+  private adaptPosterForAudioOnly (resolution: number) {
+    debugLogger('Check if we need to adapt player for audio only', resolution)
+
+    if (resolution === 0) {
+      this.player.audioPosterMode(true)
+      this.player.poster(this.options.poster())
+      return
+    }
+
+    this.player.audioPosterMode(false)
+    this.player.poster('')
+  }
+
+  // ---------------------------------------------------------------------------
+
+  private updatePlayerSizeClasses () {
+    requestAnimationFrame(() => {
+      if (!this.player) return
+
+      debugLogger('Updating player size classes')
+
+      const width = this.player.currentWidth()
+
+      const breakpoints = [ 350, 570, 750 ]
+
+      for (const breakpoint of breakpoints) {
+        if (width <= breakpoint) {
+          this.player.addClass('vjs-size-' + breakpoint)
+        } else {
+          this.player.removeClass('vjs-size-' + breakpoint)
+        }
+      }
+    })
   }
 
   // ---------------------------------------------------------------------------
@@ -355,15 +513,23 @@ class PeerTubePlugin extends Plugin {
 
     this.player.tech(true).clearTracks('text')
 
+    this.player.removeClass('vjs-has-captions')
+
     for (const caption of this.options.videoCaptions()) {
       this.player.addRemoteTextTrack({
         kind: 'captions',
-        label: caption.label,
+
+        label: caption.automaticallyGenerated
+          ? this.player.localize('{1} (auto-generated)', [ caption.label ])
+          : caption.label,
+
         language: caption.language,
         id: caption.language,
         src: caption.src,
         default: this.currentSubtitle === caption.language
       }, true)
+
+      this.player.addClass('vjs-has-captions')
     }
 
     this.player.trigger('captions-changed')
@@ -409,10 +575,13 @@ class PeerTubePlugin extends Plugin {
 
     // Prefer canplaythrough instead of canplay because Chrome has issues with the second one
     this.player.one('canplaythrough', () => {
-      if (this.options.startTime()) {
-        debugLogger('Start the video at ' + this.options.startTime())
+      const startTime = this.options.startTime()
 
-        this.player.currentTime(timeToInt(this.options.startTime()))
+      if (startTime !== null && startTime !== undefined) {
+        debugLogger('Start the video at ' + startTime)
+
+        this.hasInitialSeek = true
+        this.player.currentTime(timeToInt(startTime))
       }
 
       if (this.options.stopTime()) {

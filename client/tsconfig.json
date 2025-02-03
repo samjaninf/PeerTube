@@ -1,21 +1,21 @@
 {
   "compileOnSave": false,
   "compilerOptions": {
-    "downlevelIteration": true,
     "outDir": "./dist/out-tsc",
     "sourceMap": true,
     "declaration": false,
     "moduleResolution": "node",
     "module": "es2020",
+    "esModuleInterop": true,
     "experimentalDecorators": true,
     "noImplicitAny": true,
     "noImplicitThis": true,
     "alwaysStrict": true,
     "allowJs": true,
     "importHelpers": true,
-    "allowSyntheticDefaultImports": true,
     "strictBindCallApply": true,
     "target": "ES2022",
+    "isolatedModules": true,
     "typeRoots": [
       "node_modules/@types"
     ],
@@ -29,9 +29,6 @@
     ],
     "baseUrl": "./",
     "paths": {
-      "hls.js": [
-        "node_modules/hls.js/dist/hls.light"
-      ],
       "video.js": [
         "node_modules/video.js/core"
       ],
@@ -44,14 +41,10 @@
       "fs": [
         "src/shims/noop.ts"
       ],
-      "path": [
-        "src/shims/path.ts"
-      ],
       "crypto": [
         "src/shims/noop.ts"
       ]
-    },
-    "useDefineForClassFields": false
+    }
   },
   "references": [
     { "path": "../packages/core-utils" },
@@ -62,8 +55,10 @@
     "src/polyfills.ts"
   ],
   "include": [
+    "src/polyfills.ts",
     "src/main*.ts",
     "src/**/*.d.ts",
+    "src/app/**/*.ts",
     "src/shims/*.ts"
   ],
   "angularCompilerOptions": {

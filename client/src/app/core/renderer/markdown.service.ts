@@ -1,4 +1,3 @@
-import * as MarkdownIt from 'markdown-it'
 import { Injectable } from '@angular/core'
 import {
   buildVideoLink,
@@ -9,6 +8,7 @@ import {
   TEXT_RULES,
   TEXT_WITH_HTML_RULES
 } from '@peertube/peertube-core-utils'
+import MarkdownIt from 'markdown-it'
 import { HtmlRendererService } from './html-renderer.service'
 
 type MarkdownParsers = {
@@ -103,7 +103,7 @@ export class MarkdownService {
   // ---------------------------------------------------------------------------
 
   processVideoTimestamps (videoShortUUID: string, html: string) {
-    return html.replace(/((\d{1,2}):)?(\d{1,2}):(\d{1,2})/g, function (str, _, h, m, s) {
+    return html.replace(/\b((\d{1,2}):)?(\d{1,2}):(\d{1,2})\b/g, function (str, _, h, m, s) {
       const t = (3600 * +(h || 0)) + (60 * +(m || 0)) + (+(s || 0))
 
       const url = decorateVideoLink({
@@ -131,16 +131,22 @@ export class MarkdownService {
 
       if (withEmoji) {
         if (!this.emojiModule) {
-          this.emojiModule = (await import('markdown-it-emoji/light')).default
+          this.emojiModule = (await import('markdown-it-emoji/lib/light.mjs')).default
         }
 
-        this.markdownParsers[name].use(this.emojiModule)
+        this.markdownParsers[name].use(this.emojiModule as MarkdownIt.PluginSimple)
       }
     }
 
     const html = this.markdownParsers[name].render(markdown)
 
-    if (config.escape) return this.htmlRenderer.toSafeHtml(html, additionalAllowedTags)
+    if (config.escape) {
+      if (name === 'customPageMarkdownIt') {
+        return this.htmlRenderer.toCustomPageSafeHtml(html, additionalAllowedTags)
+      }
+
+      return this.htmlRenderer.toSimpleSafeHtml(html)
+    }
 
     return html
   }

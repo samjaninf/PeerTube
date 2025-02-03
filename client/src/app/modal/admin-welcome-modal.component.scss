@@ -6,6 +6,10 @@
   align-items: center;
   justify-content: center;
   margin-top: 50px;
+
+  @include on-small-main-col {
+    flex-wrap: wrap;
+  }
 }
 
 .mascot-fw {
@@ -13,10 +17,10 @@
 }
 
 .mascot {
-  @include margin-right(2rem);
-
   display: block;
   min-width: 170px;
+
+  @include margin-right(2rem);
 }
 
 .subtitle {
@@ -46,26 +50,21 @@ li {
 }
 
 .link-block {
-  @include disable-default-a-behaviour;
-
-  color: pvar(--mainForegroundColor);
+  color: pvar(--fg);
   padding: 10px;
   transition: background-color 0.2s ease-in;
   flex-basis: 33%;
+  text-align: center;
+
+  @include disable-default-a-behaviour;
 
   &:hover {
     background-color: rgba(0, 0, 0, 0.05);
   }
 
-  .link-title {
+  > h5 {
     font-weight: $font-semibold;
-    display: flex;
-    justify-content: center;
+    font-size: 1rem;
     margin-bottom: 5px;
-  }
-
-  .link-title,
-  div {
-    text-align: center;
   }
 }

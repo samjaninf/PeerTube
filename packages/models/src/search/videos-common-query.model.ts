@@ -21,14 +21,11 @@ export interface VideosCommonQuery {
 
   languageOneOf?: string[]
 
-  privacyOneOf?: VideoPrivacyType[]
-
   tagsOneOf?: string[]
   tagsAllOf?: string[]
 
   hasHLSFiles?: boolean
 
-  hasWebtorrentFiles?: boolean // TODO: remove in v7
   hasWebVideoFiles?: boolean
 
   skipCount?: boolean
@@ -36,6 +33,12 @@ export interface VideosCommonQuery {
   search?: string
 
   excludeAlreadyWatched?: boolean
+
+  host?: string
+
+  // Only available with special user right
+  autoTagOneOf?: string[]
+  privacyOneOf?: VideoPrivacyType[]
 }
 
 export interface VideosCommonQueryAfterSanitize extends VideosCommonQuery {

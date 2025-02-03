@@ -24,7 +24,8 @@ import {
   PlaylistFetcher,
   PlaylistTracker,
   Translations,
-  VideoFetcher
+  VideoFetcher,
+  getBackendUrl
 } from './shared'
 import { PlayerHTML } from './shared/player-html'
 
@@ -53,10 +54,12 @@ export class PeerTubeEmbed {
   private alreadyPlayed = false
 
   private videoPassword: string
+  private videoPasswordFromAPI: string
+  private onVideoPasswordFromAPIResolver: (value: string) => void
   private requiresPassword: boolean
 
   constructor (videoWrapperId: string) {
-    logger.registerServerSending(window.location.origin)
+    logger.registerServerSending(getBackendUrl())
 
     this.http = new AuthHTTP()
 
@@ -71,7 +74,9 @@ export class PeerTubeEmbed {
     try {
       this.config = JSON.parse((window as any)['PeerTubeServerConfig'])
     } catch (err) {
-      logger.error('Cannot parse HTML config.', err)
+      if (!(import.meta as any).env.DEV) {
+        logger.error('Cannot parse HTML config.', err)
+      }
     }
   }
 
@@ -81,10 +86,6 @@ export class PeerTubeEmbed {
     await embed.init()
   }
 
-  getPlayerElement () {
-    return this.playerHTML.getPlayerElement()
-  }
-
   getScope () {
     return this.playerOptionsBuilder.getScope()
   }
@@ -92,12 +93,12 @@ export class PeerTubeEmbed {
   // ---------------------------------------------------------------------------
 
   async init () {
-    this.translationsPromise = TranslationsManager.getServerTranslations(window.location.origin, navigator.language)
+    this.translationsPromise = TranslationsManager.getServerTranslations(getBackendUrl(), navigator.language)
     this.PeerTubePlayerManagerModulePromise = import('../../assets/player/peertube-player')
 
     // Issue when we parsed config from HTML, fallback to API
     if (!this.config) {
-      this.config = await this.http.fetch('/api/v1/config', { optionalAuth: false })
+      this.config = await this.http.fetch(getBackendUrl() + '/api/v1/config', { optionalAuth: false })
         .then(res => res.json())
     }
 
@@ -142,15 +143,31 @@ export class PeerTubeEmbed {
   }
 
   private initializeApi () {
-    if (this.playerOptionsBuilder.hasAPIEnabled()) {
-      if (this.api) {
-        this.api.reInit()
-        return
-      }
+    if (!this.playerOptionsBuilder.hasAPIEnabled()) return
+    if (this.api) return
 
-      this.api = new PeerTubeEmbedApi(this)
-      this.api.initialize()
+    this.api = new PeerTubeEmbedApi(this)
+    this.api.initialize()
+  }
+
+  // ---------------------------------------------------------------------------
+
+  setVideoPasswordByAPI (password: string) {
+    logger.info('Setting password from API')
+
+    this.videoPasswordFromAPI = password
+
+    if (this.onVideoPasswordFromAPIResolver) {
+      this.onVideoPasswordFromAPIResolver(password)
     }
+  }
+
+  private getPasswordByAPI () {
+    if (this.videoPasswordFromAPI) return Promise.resolve(this.videoPasswordFromAPI)
+
+    return new Promise<string>(res => {
+      this.onVideoPasswordFromAPIResolver = res
+    })
   }
 
   // ---------------------------------------------------------------------------
@@ -191,6 +208,9 @@ export class PeerTubeEmbed {
   }) {
     const { uuid, forceAutoplay } = options
 
+    this.playerOptionsBuilder.loadCommonParams()
+    this.initializeApi()
+
     try {
       const {
         videoResponse,
@@ -218,7 +238,7 @@ export class PeerTubeEmbed {
 
     const videoInfoPromise = videoResponse.json()
       .then(async (videoInfo: VideoDetails) => {
-        this.playerOptionsBuilder.loadParams(this.config, videoInfo)
+        this.playerOptionsBuilder.loadVideoParams(this.config, videoInfo)
 
         const live = videoInfo.isLive
           ? await this.videoFetcher.loadLive(videoInfo)
@@ -245,11 +265,6 @@ export class PeerTubeEmbed {
       storyboardsPromise,
       this.buildPlayerIfNeeded()
     ])
-
-    // If already played, we are in a playlist so we don't want to display the poster between videos
-    if (!this.alreadyPlayed) {
-      this.peertubePlayer.setPoster(window.location.origin + video.previewPath)
-    }
 
     const playlist = this.playlistTracker
       ? {
@@ -287,7 +302,8 @@ export class PeerTubeEmbed {
       (window as any)['videojsPlayer'] = this.player
 
       this.buildCSS()
-      this.initializeApi()
+
+      if (this.api) this.api.initWithVideo()
     }
 
     this.alreadyInitialized = true
@@ -301,17 +317,20 @@ export class PeerTubeEmbed {
     if (video.isLive) {
       this.liveManager.listenForChanges({
         video,
+
         onPublishedVideo: () => {
           this.liveManager.stopListeningForChanges(video)
           this.loadVideoAndBuildPlayer({ uuid: video.uuid, forceAutoplay: true })
-        }
+        },
+
+        onForceEnd: () => this.endLive(video, translations)
       })
 
       if (video.state.id === VideoState.WAITING_FOR_LIVE || video.state.id === VideoState.LIVE_ENDED) {
         this.liveManager.displayInfo({ state: video.state.id, translations })
         this.peertubePlayer.disable()
       } else {
-        this.correctlyHandleLiveEnding(translations)
+        this.player.one('ended', () => this.endLive(video, translations))
       }
     }
 
@@ -322,17 +341,27 @@ export class PeerTubeEmbed {
     const body = document.getElementById('custom-css')
 
     if (this.playerOptionsBuilder.hasBigPlayBackgroundColor()) {
-      body.style.setProperty('--embedBigPlayBackgroundColor', this.playerOptionsBuilder.getBigPlayBackgroundColor())
+      body.style.setProperty('--embed-big-play-background-color', this.playerOptionsBuilder.getBigPlayBackgroundColor())
     }
 
     if (this.playerOptionsBuilder.hasForegroundColor()) {
-      body.style.setProperty('--embedForegroundColor', this.playerOptionsBuilder.getForegroundColor())
+      body.style.setProperty('--embed-foreground-color', this.playerOptionsBuilder.getForegroundColor())
     }
   }
 
   // ---------------------------------------------------------------------------
 
   private getResourceId () {
+    const search = window.location.search
+
+    if (search.startsWith('?videoId=')) {
+      return search.replace(/^\?videoId=/, '')
+    }
+
+    if (search.startsWith('?videoPlaylistId=')) {
+      return search.replace(/^\?videoPlaylistId=/, '')
+    }
+
     const urlParts = window.location.pathname.split('/')
     return urlParts[urlParts.length - 1]
   }
@@ -343,13 +372,13 @@ export class PeerTubeEmbed {
 
   // ---------------------------------------------------------------------------
 
-  private correctlyHandleLiveEnding (translations: Translations) {
-    this.player.one('ended', () => {
-      // Display the live ended information
-      this.liveManager.displayInfo({ state: VideoState.LIVE_ENDED, translations })
+  private endLive (video: VideoDetails, translations: Translations) {
+    // Display the live ended information
+    this.liveManager.displayInfo({ state: VideoState.LIVE_ENDED, translations })
 
-      this.peertubePlayer.disable()
-    })
+    this.peertubePlayer.unload()
+    this.peertubePlayer.disable()
+    this.peertubePlayer.setPoster(video.previewPath)
   }
 
   private async handlePasswordError (err: PeerTubeServerError) {
@@ -360,10 +389,30 @@ export class PeerTubeEmbed {
     if (incorrectPassword === null) return false
 
     this.requiresPassword = true
+
+    if (this.playerOptionsBuilder.mustWaitPasswordFromEmbedAPI()) {
+      logger.info('Waiting for password from Embed API')
+
+      const videoPasswordFromAPI = await this.getPasswordByAPI()
+
+      if (videoPasswordFromAPI && this.videoPassword !== videoPasswordFromAPI) {
+        logger.info('Using video password from API')
+
+        this.videoPassword = videoPasswordFromAPI
+
+        return true
+      }
+
+      logger.error('Password from embed API is not valid')
+
+      return false
+    }
+
     this.videoPassword = await this.playerHTML.askVideoPassword({
       incorrectPassword,
       translations: await this.translationsPromise
     })
+
     return true
   }
 
@@ -378,8 +427,8 @@ export class PeerTubeEmbed {
     playerElement.className = 'video-js vjs-peertube-skin'
     playerElement.setAttribute('playsinline', 'true')
 
-    this.playerHTML.setPlayerElement(playerElement)
-    this.playerHTML.addPlayerElementToDOM()
+    this.playerHTML.setInitVideoEl(playerElement)
+    this.playerHTML.addInitVideoElToDOM()
 
     const [ { PeerTubePlayer } ] = await Promise.all([
       this.PeerTubePlayerManagerModulePromise,
@@ -393,6 +442,19 @@ export class PeerTubeEmbed {
     this.peertubePlayer = new PeerTubePlayer(constructorOptions)
 
     this.player = this.peertubePlayer.getPlayer()
+  }
+
+  getImageDataUrl (): string {
+    const canvas = document.createElement('canvas')
+
+    canvas.width = this.player.videoWidth()
+    canvas.height = this.player.videoHeight()
+
+    const videoEl = this.player.tech(true).el() as HTMLVideoElement
+
+    canvas.getContext('2d').drawImage(videoEl, 0, 0, canvas.width, canvas.height)
+
+    return canvas.toDataURL('image/jpeg')
   }
 }
 

@@ -1,18 +1,18 @@
 <nav aria-label="breadcrumb">
-  <ol class="breadcrumb">
+  <ol class="pt-breadcrumb">
     <li class="breadcrumb-item">
-      <a routerLink="/admin/users" i18n>Users</a>
+      <a routerLink="/admin/overview/users" i18n>Users</a>
     </li>
 
-    <ng-container *ngIf="isCreation()">
-      <li class="breadcrumb-item active" i18n>Create</li>
-    </ng-container>
-    <ng-container *ngIf="!isCreation()">
-      <li class="breadcrumb-item active" i18n>Edit</li>
-      <li class="breadcrumb-item active" aria-current="page">
+    @if (isCreation()) {
+      <li class="breadcrumb-item" i18n>Create</li>
+    } @else {
+      <li class="breadcrumb-item" i18n>Edit</li>
+
+      <li class="breadcrumb-item" aria-current="page">
         <a *ngIf="user" [routerLink]="[ '/a', user?.username ]">{{ user?.username }}</a>
       </li>
-    </ng-container>
+    }
   </ol>
 </nav>
 
@@ -57,35 +57,42 @@
   </div>
 </ng-template>
 
-<div class="row d-xxl-none"> <!-- hidden on large screens, as it is then displayed on the right side of the form -->
-  <div class="col-12 col-xl-3"></div>
+<my-alert *ngIf="error" type="danger">{{ error }}</my-alert>
+
+<div class="pt-two-cols d-xxl-none"> <!-- hidden on large screens, as it is then displayed on the right side of the form -->
+  <div class="col-0 col-xl-3"></div>
 
   <div class="col-12 col-xl-9">
     <ng-template *ngTemplateOutlet="dashboard"></ng-template>
   </div>
 </div>
 
-<div *ngIf="error" class="alert alert-danger">{{ error }}</div>
-
-<div class="row mt-4"> <!-- user grid -->
-  <div class="col-12 col-lg-4 col-xl-3">
+<div class="pt-two-cols mt-4"> <!-- user grid -->
+  <div class="title-col">
     <div class="anchor" id="user"></div> <!-- user anchor -->
-    <div *ngIf="isCreation()" class="account-title" i18n>NEW USER</div>
-    <div *ngIf="!isCreation() && user" class="account-title">
-      <my-actor-avatar-edit [actor]="user.account" [editable]="false" [displaySubscribers]="false" [displayUsername]="false"></my-actor-avatar-edit>
-    </div>
+
+    @if (isCreation()) {
+      <h2 i18n>NEW USER</h2>
+    } @else if (user) {
+      <h2 class="visually-hidden">EDIT USER {{ user.username }}</h2>
+
+      <my-actor-avatar-edit
+        actorType="account" [displayName]="user.account.displayName" [avatars]="user.account.avatars"
+        editable="false" [username]="user.username" displayUsername="false"
+      ></my-actor-avatar-edit>
+    }
   </div>
 
-  <div class="col-12 col-lg-8 col-xl-9">
+  <div class="content-col">
     <div class="row">
-      <form class="col" role="form" (ngSubmit)="formValidated()" [formGroup]="form">
+      <form class="col" (ngSubmit)="formValidated()" [formGroup]="form">
         <div class="form-group" *ngIf="isCreation()">
           <label i18n for="username">Username</label>
           <input
             type="text" id="username" i18n-placeholder placeholder="john" class="form-control"
             formControlName="username" [ngClass]="{ 'input-error': formErrors['username'] }"
           >
-          <div *ngIf="formErrors.username" class="form-error">
+          <div *ngIf="formErrors.username" class="form-error" role="alert">
             {{ formErrors.username }}
           </div>
         </div>
@@ -96,7 +103,7 @@
             type="text" id="channelName" i18n-placeholder placeholder="john_channel" class="form-control"
             formControlName="channelName" [ngClass]="{ 'input-error': formErrors['channelName'] }"
           >
-          <div *ngIf="formErrors.channelName" class="form-error">
+          <div *ngIf="formErrors.channelName" class="form-error" role="alert">
             {{ formErrors.channelName }}
           </div>
         </div>
@@ -108,7 +115,7 @@
             formControlName="email" [ngClass]="{ 'input-error': formErrors['email'] }"
             autocomplete="off" [readonly]="user && user.pluginAuth !== null"
           >
-          <div *ngIf="formErrors.email" class="form-error">
+          <div *ngIf="formErrors.email" class="form-error" role="alert">
             {{ formErrors.email }}
           </div>
         </div>
@@ -137,16 +144,17 @@
               </select>
           </div>
 
-          <div *ngIf="formErrors.role" class="form-error">
+          <div *ngIf="formErrors.role" class="form-error" role="alert">
             {{ formErrors.role }}
           </div>
         </div>
 
         <div class="form-group">
-          <label i18n for="videoQuota">Video quota</label>
+          <label i18n id="videoQuotaLabel" for="videoQuota">Video quota</label>
 
           <my-select-custom-value
-            id="videoQuota"
+            labelId="videoQuotaLabel"
+            inputId="videoQuota"
             [items]="videoQuotaOptions"
             formControlName="videoQuota"
             i18n-inputSuffix inputSuffix="bytes" inputType="number"
@@ -155,23 +163,24 @@
 
           <my-user-real-quota-info [videoQuota]="getUserVideoQuota()"></my-user-real-quota-info>
 
-          <div *ngIf="formErrors.videoQuota" class="form-error">
+          <div *ngIf="formErrors.videoQuota" class="form-error" role="alert">
             {{ formErrors.videoQuota }}
           </div>
         </div>
 
         <div class="form-group">
-          <label i18n for="videoQuotaDaily">Daily video quota</label>
+          <label i18n id="videoQuotaDailyLabel" for="videoQuotaDaily">Daily video quota</label>
 
           <my-select-custom-value
-            id="videoQuotaDaily"
+            labelId="videoQuotaDailyLabel"
+            inputId="videoQuotaDaily"
             [items]="videoQuotaDailyOptions"
             formControlName="videoQuotaDaily"
             i18n-inputSuffix inputSuffix="bytes" inputType="number"
             [clearable]="false"
           ></my-select-custom-value>
 
-          <div *ngIf="formErrors.videoQuotaDaily" class="form-error">
+          <div *ngIf="formErrors.videoQuotaDaily" class="form-error" role="alert">
             {{ formErrors.videoQuotaDaily }}
           </div>
         </div>
@@ -198,7 +207,7 @@
           </my-peertube-checkbox>
         </div>
 
-        <input type="submit" value="{{ getFormButtonTitle() }}" [disabled]="!form.valid">
+        <input class="peertube-button primary-button" type="submit" value="{{ getFormButtonTitle() }}" [disabled]="!form.valid">
       </form>
 
       <div class="d-none d-xxl-block col-7">
@@ -209,18 +218,18 @@
 </div>
 
 
-<div *ngIf="displayDangerZone()" class="row mt-4"> <!-- danger zone grid -->
-  <div class="col-12 col-lg-4 col-xl-3">
+<div *ngIf="displayDangerZone()" class="pt-two-cols mt-5"> <!-- danger zone grid -->
+  <div class="title-col">
     <div class="anchor" id="danger"></div> <!-- danger zone anchor -->
-    <div i18n class="account-title account-title-danger">DANGER ZONE</div>
+    <h2 i18n class="pt-title-danger">DANGER ZONE</h2>
   </div>
 
-  <div class="col-12 col-lg-8 col-xl-9">
+  <div class="content-col">
 
     <div class="danger-zone">
-      <div class="form-group">
+    <div class="form-group">
         <div class="mb-1 fw-bold" i18n>Send a link to reset the password by email to the user</div>
-        <button (click)="resetPassword()" i18n>Ask for new password</button>
+        <button class="peertube-button danger-button" (click)="resetPassword()" i18n>Ask for new password</button>
       </div>
 
       <div class="form-group">
@@ -230,7 +239,7 @@
 
       <div *ngIf="user.twoFactorEnabled" class="form-group">
         <div class="mb-1 fw-bold" i18n>This user has two factor authentication enabled</div>
-        <button (click)="disableTwoFactorAuth()" i18n>Disable two factor authentication</button>
+        <button class="peertube-button danger-button" (click)="disableTwoFactorAuth()" i18n>Disable two factor authentication</button>
       </div>
     </div>
 

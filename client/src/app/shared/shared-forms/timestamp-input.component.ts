@@ -1,6 +1,8 @@
-import { ChangeDetectorRef, Component, EventEmitter, forwardRef, Input, OnInit, Output } from '@angular/core'
-import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms'
+import { NgClass } from '@angular/common'
+import { booleanAttribute, ChangeDetectorRef, Component, EventEmitter, forwardRef, Input, OnInit, Output } from '@angular/core'
+import { ControlValueAccessor, FormsModule, NG_VALUE_ACCESSOR } from '@angular/forms'
 import { secondsToTime, timeToInt } from '@peertube/peertube-core-utils'
+import { InputMaskModule } from 'primeng/inputmask'
 
 @Component({
   selector: 'my-timestamp-input',
@@ -12,14 +14,22 @@ import { secondsToTime, timeToInt } from '@peertube/peertube-core-utils'
       useExisting: forwardRef(() => TimestampInputComponent),
       multi: true
     }
-  ]
+  ],
+  standalone: true,
+  imports: [ InputMaskModule, FormsModule, NgClass ]
 })
 export class TimestampInputComponent implements ControlValueAccessor, OnInit {
   @Input() maxTimestamp: number
   @Input() timestamp: number
-  @Input() disabled = false
+
+  @Input({ transform: booleanAttribute }) disabled = false
+  @Input({ transform: booleanAttribute }) enableBorder = false
+
   @Input() inputName: string
-  @Input() disableBorder = true
+  @Input() mask = '99:99:99'
+
+  @Input() formatter = (timestamp: number) => secondsToTime({ seconds: timestamp, format: 'full', symbol: ':' })
+  @Input() parser = (timestampString: string) => timeToInt(timestampString)
 
   @Output() inputBlur = new EventEmitter()
 
@@ -35,8 +45,7 @@ export class TimestampInputComponent implements ControlValueAccessor, OnInit {
 
   writeValue (timestamp: number) {
     this.timestamp = timestamp
-
-    this.timestampString = secondsToTime(this.timestamp, true, ':')
+    this.timestampString = this.formatter(this.timestamp)
   }
 
   registerOnChange (fn: (_: any) => void) {
@@ -48,7 +57,7 @@ export class TimestampInputComponent implements ControlValueAccessor, OnInit {
   }
 
   onModelChange () {
-    this.timestamp = timeToInt(this.timestampString)
+    this.timestamp = this.parser(this.timestampString)
 
     this.propagateChange(this.timestamp)
   }

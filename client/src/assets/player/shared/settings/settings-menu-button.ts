@@ -4,9 +4,9 @@ import { SettingsDialog } from './settings-dialog'
 import { SettingsMenuItem } from './settings-menu-item'
 import { SettingsPanel } from './settings-panel'
 import { SettingsPanelChild } from './settings-panel-child'
+import { MenuFocusFixed } from './menu-focus-fixed'
 
 const Button = videojs.getComponent('Button')
-const Menu = videojs.getComponent('Menu')
 const Component = videojs.getComponent('Component')
 
 export interface SettingsButtonOptions extends videojs.ComponentOptions {
@@ -17,18 +17,18 @@ export interface SettingsButtonOptions extends videojs.ComponentOptions {
 }
 
 class SettingsButton extends Button {
-  dialog: SettingsDialog
-  dialogEl: HTMLElement
-  menu: videojs.Menu
-  panel: SettingsPanel
-  panelChild: SettingsPanelChild
+  declare dialog: SettingsDialog
+  declare dialogEl: HTMLElement
+  declare menu: MenuFocusFixed
+  declare panel: SettingsPanel
+  declare panelChild: SettingsPanelChild
 
-  addSettingsItemHandler: typeof SettingsButton.prototype.onAddSettingsItem
-  disposeSettingsItemHandler: typeof SettingsButton.prototype.onDisposeSettingsItem
-  documentClickHandler: typeof SettingsButton.prototype.onDocumentClick
-  userInactiveHandler: typeof SettingsButton.prototype.onUserInactive
+  declare addSettingsItemHandler: typeof SettingsButton.prototype.onAddSettingsItem
+  declare disposeSettingsItemHandler: typeof SettingsButton.prototype.onDisposeSettingsItem
+  declare documentClickHandler: typeof SettingsButton.prototype.onDocumentClick
+  declare userInactiveHandler: typeof SettingsButton.prototype.onUserInactive
 
-  private settingsButtonOptions: SettingsButtonOptions
+  declare private settingsButtonOptions: SettingsButtonOptions
 
   constructor (player: videojs.Player, options?: SettingsButtonOptions) {
     super(player, options)
@@ -44,7 +44,6 @@ class SettingsButton extends Button {
     this.panelChild = this.panel.addChild('settingsPanelChild')
 
     this.addClass('vjs-settings')
-    this.el().setAttribute('aria-label', 'Settings Button')
 
     // Event handlers
     this.addSettingsItemHandler = this.onAddSettingsItem.bind(this)
@@ -122,6 +121,7 @@ class SettingsButton extends Button {
 
   bindEvents () {
     document.addEventListener('click', this.documentClickHandler)
+
     if (this.isInIframe()) {
       window.addEventListener('blur', this.documentClickHandler)
     }
@@ -153,8 +153,7 @@ class SettingsButton extends Button {
 
     this.setDialogSize(this.getComponentSize(this.menu))
 
-    const firstChild = this.menu.children()[0]
-    if (firstChild) firstChild.focus()
+    this.menu.focus()
   }
 
   hideDialog () {
@@ -209,7 +208,12 @@ class SettingsButton extends Button {
   }
 
   buildMenu () {
-    this.menu = new Menu(this.player())
+    this.menu = new MenuFocusFixed(this.player())
+    this.menu.on('escaped-key', () => {
+      this.hideDialog()
+      this.focus()
+    })
+
     this.menu.addClass('vjs-main-menu')
     const entries = this.settingsButtonOptions.entries
 
@@ -244,6 +248,7 @@ class SettingsButton extends Button {
 
     // Hide children to avoid sub menus stacking on top of each other
     // or having multiple menus open
+    // eslint-disable-next-line @typescript-eslint/unbound-method
     settingsMenuItem.on('click', videojs.bind(this, this.hideChildren))
 
     // Whether to add or remove selected class on the settings sub menu element

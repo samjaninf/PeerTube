@@ -5,9 +5,9 @@ import { pathExists, remove } from 'fs-extra/esm'
 import { join } from 'path'
 import { wait } from '@peertube/peertube-core-utils'
 import { root } from '@peertube/peertube-node-utils'
-import { doRequest, doRequestAndSaveToFile } from '@peertube/peertube-server/server/helpers/requests.js'
+import { doRequest, doRequestAndSaveToFile } from '@peertube/peertube-server/core/helpers/requests.js'
 import { Mock429 } from '@tests/shared/mock-servers/mock-429.js'
-import { FIXTURE_URLS } from '@tests/shared/tests.js'
+import { FIXTURE_URLS } from '@tests/shared/fixture-urls.js'
 
 describe('Request helpers', function () {
   const destPath1 = join(root(), 'test-output-1.txt')
@@ -43,7 +43,7 @@ describe('Request helpers', function () {
     const port = await mock.initialize()
 
     const before = new Date().getTime()
-    await doRequest('http://127.0.0.1:' + port)
+    await doRequest('http://127.0.0.1:' + port, { preventSSRF: false })
 
     expect(new Date().getTime() - before).to.be.greaterThan(2000)
 

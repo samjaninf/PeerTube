@@ -1,25 +1,26 @@
 /* eslint-disable @typescript-eslint/no-unused-expressions,@typescript-eslint/require-await */
 
-import { expect } from 'chai'
-import request from 'supertest'
 import { wait } from '@peertube/peertube-core-utils'
-import { HttpStatusCode, VideoCommentThreadTree, VideoPrivacy } from '@peertube/peertube-models'
+import { HttpStatusCode, VideoCommentPolicy, VideoCommentThreadTree, VideoPrivacy } from '@peertube/peertube-models'
 import { buildAbsoluteFixturePath } from '@peertube/peertube-node-utils'
 import {
+  PeerTubeServer,
   cleanupTests,
   createMultipleServers,
-  doubleFollow,
+  followAll,
   makeGetRequest,
-  PeerTubeServer,
   setAccessTokensToServers,
   setDefaultAccountAvatar,
   setDefaultChannelAvatar,
   waitJobs
 } from '@peertube/peertube-server-commands'
-import { testImageGeneratedByFFmpeg, dateIsValid } from '@tests/shared/checks.js'
+import { dateIsValid, testImageGeneratedByFFmpeg } from '@tests/shared/checks.js'
 import { checkTmpIsEmpty } from '@tests/shared/directories.js'
-import { completeVideoCheck, saveVideoInServers, checkVideoFilesWereRemoved } from '@tests/shared/videos.js'
+import { checkVideoFilesWereRemoved, completeVideoCheck, saveVideoInServers } from '@tests/shared/videos.js'
 import { checkWebTorrentWorks } from '@tests/shared/webtorrent.js'
+import Bluebird from 'bluebird'
+import { expect } from 'chai'
+import request from 'supertest'
 
 describe('Test multiple servers', function () {
   let servers: PeerTubeServer[] = []
@@ -49,12 +50,7 @@ describe('Test multiple servers', function () {
       videoChannelId = data[0].id
     }
 
-    // Server 1 and server 2 follow each other
-    await doubleFollow(servers[0], servers[1])
-    // Server 1 and server 3 follow each other
-    await doubleFollow(servers[0], servers[2])
-    // Server 2 and server 3 follow each other
-    await doubleFollow(servers[1], servers[2])
+    await followAll(servers)
   })
 
   it('Should not have videos for all servers', async function () {
@@ -89,8 +85,8 @@ describe('Test multiple servers', function () {
 
       // All servers should have this video
       let publishedAt: string = null
-      for (const server of servers) {
-        const isLocal = server.port === servers[0].port
+
+      await Bluebird.map(servers, async server => {
         const checkAttributes = {
           name: 'my super name for server 1',
           category: 5,
@@ -104,23 +100,23 @@ describe('Test multiple servers', function () {
             name: 'root',
             host: servers[0].host
           },
-          isLocal,
           publishedAt,
           duration: 10,
           tags: [ 'tag1p1', 'tag2p1' ],
           privacy: VideoPrivacy.PUBLIC,
-          commentsEnabled: true,
+          commentsPolicy: VideoCommentPolicy.ENABLED,
           downloadEnabled: true,
           channel: {
             displayName: 'my channel',
             name: 'super_channel_name',
-            description: 'super channel',
-            isLocal
+            description: 'super channel'
           },
           fixture: 'video_short1.webm',
           files: [
             {
               resolution: 720,
+              height: 720,
+              width: 1280,
               size: 572456
             }
           ]
@@ -134,13 +130,13 @@ describe('Test multiple servers', function () {
         await completeVideoCheck({ server, originServer: servers[0], videoUUID: video.uuid, attributes: checkAttributes })
         publishedAt = video.publishedAt as string
 
-        expect(video.channel.avatars).to.have.lengthOf(2)
-        expect(video.account.avatars).to.have.lengthOf(2)
+        expect(video.channel.avatars).to.have.lengthOf(4)
+        expect(video.account.avatars).to.have.lengthOf(4)
 
         for (const image of [ ...video.channel.avatars, ...video.account.avatars ]) {
           expect(image.createdAt).to.exist
           expect(image.updatedAt).to.exist
-          expect(image.width).to.be.above(20).and.below(1000)
+          expect(image.width).to.be.above(20).and.below(2000)
           expect(image.path).to.exist
 
           await makeGetRequest({
@@ -149,7 +145,7 @@ describe('Test multiple servers', function () {
             expectedStatus: HttpStatusCode.OK_200
           })
         }
-      }
+      })
     })
 
     it('Should upload the video on server 2 and propagate on each server', async function () {
@@ -181,8 +177,7 @@ describe('Test multiple servers', function () {
       await waitJobs(servers)
 
       // All servers should have this video
-      for (const server of servers) {
-        const isLocal = server.url === servers[1].url
+      await Bluebird.map(servers, async server => {
         const checkAttributes = {
           name: 'my super name for server 2',
           category: 4,
@@ -195,8 +190,7 @@ describe('Test multiple servers', function () {
             name: 'user1',
             host: servers[1].host
           },
-          isLocal,
-          commentsEnabled: true,
+          commentsPolicy: VideoCommentPolicy.ENABLED,
           downloadEnabled: true,
           duration: 5,
           tags: [ 'tag1p2', 'tag2p2', 'tag3p2' ],
@@ -204,25 +198,32 @@ describe('Test multiple servers', function () {
           channel: {
             displayName: 'Main user1 channel',
             name: 'user1_channel',
-            description: 'super channel',
-            isLocal
+            description: 'super channel'
           },
           fixture: 'video_short2.webm',
           files: [
             {
               resolution: 240,
+              height: 240,
+              width: 426,
               size: 270000
             },
             {
               resolution: 360,
+              height: 360,
+              width: 640,
               size: 359000
             },
             {
               resolution: 480,
+              height: 480,
+              width: 854,
               size: 465000
             },
             {
               resolution: 720,
+              height: 720,
+              width: 1280,
               size: 750000
             }
           ],
@@ -236,7 +237,7 @@ describe('Test multiple servers', function () {
         const video = data[1]
 
         await completeVideoCheck({ server, originServer: servers[1], videoUUID: video.uuid, attributes: checkAttributes })
-      }
+      })
     })
 
     it('Should upload two videos on server 3 and propagate on each server', async function () {
@@ -275,8 +276,7 @@ describe('Test multiple servers', function () {
       await waitJobs(servers)
 
       // All servers should have this video
-      for (const server of servers) {
-        const isLocal = server.url === servers[2].url
+      await Bluebird.map(servers, async server => {
         const { data } = await server.videos.list()
 
         expect(data).to.be.an('array')
@@ -305,22 +305,22 @@ describe('Test multiple servers', function () {
             name: 'root',
             host: servers[2].host
           },
-          isLocal,
           duration: 5,
-          commentsEnabled: true,
+          commentsPolicy: VideoCommentPolicy.ENABLED,
           downloadEnabled: true,
           tags: [ 'tag1p3' ],
           privacy: VideoPrivacy.PUBLIC,
           channel: {
             displayName: 'Main root channel',
             name: 'root_channel',
-            description: '',
-            isLocal
+            description: ''
           },
           fixture: 'video_short3.webm',
           files: [
             {
               resolution: 720,
+              height: 720,
+              width: 1280,
               size: 292677
             }
           ]
@@ -339,32 +339,33 @@ describe('Test multiple servers', function () {
             name: 'root',
             host: servers[2].host
           },
-          commentsEnabled: true,
+          commentsPolicy: VideoCommentPolicy.ENABLED,
           downloadEnabled: true,
-          isLocal,
           duration: 5,
           tags: [ 'tag2p3', 'tag3p3', 'tag4p3' ],
           privacy: VideoPrivacy.PUBLIC,
           channel: {
             displayName: 'Main root channel',
             name: 'root_channel',
-            description: '',
-            isLocal
+            description: ''
           },
           fixture: 'video_short.webm',
           files: [
             {
               resolution: 720,
+              height: 720,
+              width: 1280,
               size: 218910
             }
           ]
         }
         await completeVideoCheck({ server, originServer: servers[2], videoUUID: video2.uuid, attributes: checkAttributesVideo2 })
-      }
+      })
     })
   })
 
-  describe('It should list local videos', function () {
+  describe('Local videos listing', function () {
+
     it('Should list only local videos on server 1', async function () {
       const { data, total } = await servers[0].videos.list({ isLocal: true })
 
@@ -391,6 +392,21 @@ describe('Test multiple servers', function () {
       expect(data.length).to.equal(2)
       expect(data[0].name).to.equal('my super name for server 3')
       expect(data[1].name).to.equal('my super name for server 3-2')
+    })
+  })
+
+  describe('All videos listing', function () {
+
+    it('Should list and sort by "localVideoFilesSize"', async function () {
+      const { data, total } = await servers[2].videos.list({ sort: '-localVideoFilesSize' })
+
+      expect(total).to.equal(4)
+      expect(data).to.be.an('array')
+      expect(data.length).to.equal(4)
+      expect(data[0].name).to.equal('my super name for server 3')
+      expect(data[1].name).to.equal('my super name for server 3-2')
+      expect(data[2].isLocal).to.be.false
+      expect(data[3].isLocal).to.be.false
     })
   })
 
@@ -630,7 +646,7 @@ describe('Test multiple servers', function () {
     it('Should have the video 3 updated on each server', async function () {
       this.timeout(30000)
 
-      for (const server of servers) {
+      await Bluebird.map(servers, async server => {
         const { data } = await server.videos.list()
 
         const videoUpdated = data.find(video => video.name === 'my super video updated')
@@ -638,7 +654,6 @@ describe('Test multiple servers', function () {
 
         expect(new Date(videoUpdated.updatedAt)).to.be.greaterThan(updatedAtMin)
 
-        const isLocal = server.url === servers[2].url
         const checkAttributes = {
           name: 'my super video updated',
           category: 10,
@@ -652,22 +667,22 @@ describe('Test multiple servers', function () {
             name: 'root',
             host: servers[2].host
           },
-          isLocal,
           duration: 5,
-          commentsEnabled: true,
+          commentsPolicy: VideoCommentPolicy.ENABLED,
           downloadEnabled: true,
           tags: [ 'tag_up_1', 'tag_up_2' ],
           privacy: VideoPrivacy.PUBLIC,
           channel: {
             displayName: 'Main root channel',
             name: 'root_channel',
-            description: '',
-            isLocal
+            description: ''
           },
           fixture: 'video_short3.webm',
           files: [
             {
               resolution: 720,
+              height: 720,
+              width: 1280,
               size: 292677
             }
           ],
@@ -675,7 +690,7 @@ describe('Test multiple servers', function () {
           previewfile: 'custom-preview'
         }
         await completeVideoCheck({ server, originServer: servers[2], videoUUID: videoUpdated.uuid, attributes: checkAttributes })
-      }
+      })
     })
 
     it('Should be able to remove originallyPublishedAt attribute', async function () {
@@ -1004,7 +1019,7 @@ describe('Test multiple servers', function () {
       this.timeout(20000)
 
       const attributes = {
-        commentsEnabled: false,
+        commentsPolicy: VideoCommentPolicy.DISABLED,
         downloadEnabled: false
       }
 
@@ -1015,6 +1030,8 @@ describe('Test multiple servers', function () {
       for (const server of servers) {
         const video = await server.videos.get({ id: videoUUID })
         expect(video.commentsEnabled).to.be.false
+        expect(video.commentsPolicy.id).to.equal(VideoCommentPolicy.DISABLED)
+        expect(video.commentsPolicy.label).to.equal('Disabled')
         expect(video.downloadEnabled).to.be.false
 
         const text = 'my super forbidden comment'
@@ -1024,8 +1041,9 @@ describe('Test multiple servers', function () {
   })
 
   describe('With minimum parameters', function () {
+
     it('Should upload and propagate the video', async function () {
-      this.timeout(120000)
+      this.timeout(240000)
 
       const path = '/api/v1/videos/upload'
 
@@ -1042,7 +1060,7 @@ describe('Test multiple servers', function () {
 
       await waitJobs(servers)
 
-      for (const server of servers) {
+      await Bluebird.map(servers, async server => {
         const { data } = await server.videos.list()
         const video = data.find(v => v.name === 'minimum parameters')
 
@@ -1061,7 +1079,7 @@ describe('Test multiple servers', function () {
           },
           isLocal,
           duration: 5,
-          commentsEnabled: true,
+          commentsPolicy: VideoCommentPolicy.ENABLED,
           downloadEnabled: true,
           tags: [],
           privacy: VideoPrivacy.PUBLIC,
@@ -1075,33 +1093,43 @@ describe('Test multiple servers', function () {
           files: [
             {
               resolution: 720,
+              height: 720,
+              width: 1280,
               size: 61000
             },
             {
               resolution: 480,
+              height: 480,
+              width: 854,
               size: 40000
             },
             {
               resolution: 360,
+              height: 360,
+              width: 640,
               size: 32000
             },
             {
               resolution: 240,
+              height: 240,
+              width: 426,
               size: 23000
             }
           ]
         }
         await completeVideoCheck({ server, originServer: servers[1], videoUUID: video.uuid, attributes: checkAttributes })
-      }
+      })
     })
   })
 
   describe('TMP directory', function () {
+
     it('Should have an empty tmp directory', async function () {
       for (const server of servers) {
         await checkTmpIsEmpty(server)
       }
     })
+
   })
 
   after(async function () {

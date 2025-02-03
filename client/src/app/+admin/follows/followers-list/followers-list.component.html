@@ -1,8 +1,3 @@
-<h1>
-  <my-global-icon iconName="follower" aria-hidden="true"></my-global-icon>
-  <ng-container i18n>Followers of your instance</ng-container>
-</h1>
-
 <p-table
   [value]="followers" [paginator]="totalRecords > 0" [totalRecords]="totalRecords" [rows]="rowsPerPage" [first]="pagination.start"
   [rowsPerPageOptions]="rowsPerPageOptions" [sortField]="sort.field" [sortOrder]="sort.order"
@@ -14,7 +9,7 @@
     <div class="caption">
       <div class="left-buttons">
         <my-action-dropdown
-          *ngIf="isInSelectionMode()" i18n-label label="Batch actions" theme="orange"
+          *ngIf="isInSelectionMode()" i18n-label label="Batch actions" theme="primary"
           [actions]="bulkActions" [entry]="selectedRows"
         >
         </my-action-dropdown>
@@ -28,14 +23,14 @@
 
   <ng-template pTemplate="header">
     <tr>
-      <th style="width: 40px">
+      <th scope="col" style="width: 40px">
         <p-tableHeaderCheckbox ariaLabel="Select all rows" i18n-ariaLabel></p-tableHeaderCheckbox>
       </th>
-      <th style="width: 150px;" i18n>Actions</th>
-      <th i18n>Follower</th>
-      <th style="width: 100px;" i18n pSortableColumn="state">State <p-sortIcon field="state"></p-sortIcon></th>
-      <th style="width: 100px;" i18n pSortableColumn="score">Score <p-sortIcon field="score"></p-sortIcon></th>
-      <th style="width: 150px;" i18n pSortableColumn="createdAt">Created <p-sortIcon field="createdAt"></p-sortIcon></th>
+      <th scope="col" style="width: 150px;" i18n>Actions</th>
+      <th scope="col" i18n>Follower</th>
+      <th scope="col" style="width: 100px;" i18n [ngbTooltip]="sortTooltip" container="body" pSortableColumn="state">State <p-sortIcon field="state"></p-sortIcon></th>
+      <th scope="col" style="width: 100px;" i18n [ngbTooltip]="sortTooltip" container="body" pSortableColumn="score">Score <p-sortIcon field="score"></p-sortIcon></th>
+      <th scope="col" style="width: 150px;" i18n [ngbTooltip]="sortTooltip" container="body" pSortableColumn="createdAt">Created <p-sortIcon field="createdAt"></p-sortIcon></th>
     </tr>
   </ng-template>
 
@@ -65,7 +60,7 @@
       </td>
 
       <td>{{ follow.score }}</td>
-      <td>{{ follow.createdAt | date: 'short' }}</td>
+      <td>{{ follow.createdAt | ptDate: 'short' }}</td>
     </tr>
   </ng-template>
 

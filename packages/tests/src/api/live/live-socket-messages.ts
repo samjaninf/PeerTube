@@ -1,19 +1,19 @@
 /* eslint-disable @typescript-eslint/no-unused-expressions,@typescript-eslint/require-await */
 
-import { expect } from 'chai'
 import { wait } from '@peertube/peertube-core-utils'
-import { LiveVideoEventPayload, VideoPrivacy, VideoState, VideoStateType } from '@peertube/peertube-models'
+import { LiveVideoCreate, LiveVideoEventPayload, VideoPrivacy, VideoState, VideoStateType } from '@peertube/peertube-models'
 import {
+  PeerTubeServer,
   cleanupTests,
   createMultipleServers,
   doubleFollow,
-  PeerTubeServer,
   setAccessTokensToServers,
   setDefaultVideoChannel,
   stopFfmpeg,
   waitJobs,
   waitUntilLivePublishedOnAllServers
 } from '@peertube/peertube-server-commands'
+import { expect } from 'chai'
 
 describe('Test live socket messages', function () {
   let servers: PeerTubeServer[] = []
@@ -27,17 +27,8 @@ describe('Test live socket messages', function () {
     await setAccessTokensToServers(servers)
     await setDefaultVideoChannel(servers)
 
-    await servers[0].config.updateCustomSubConfig({
-      newConfig: {
-        live: {
-          enabled: true,
-          allowReplay: true,
-          transcoding: {
-            enabled: false
-          }
-        }
-      }
-    })
+    await servers[0].config.enableMinimumTranscoding()
+    await servers[0].config.enableLive({ allowReplay: true, transcoding: false })
 
     // Server 1 and server 2 follow each other
     await doubleFollow(servers[0], servers[1])
@@ -45,11 +36,13 @@ describe('Test live socket messages', function () {
 
   describe('Live socket messages', function () {
 
-    async function createLiveWrapper () {
+    async function createLiveWrapper (options: Partial<LiveVideoCreate> = {}) {
       const liveAttributes = {
         name: 'live video',
         channelId: servers[0].store.channel.id,
-        privacy: VideoPrivacy.PUBLIC
+        privacy: VideoPrivacy.PUBLIC,
+
+        ...options
       }
 
       const { uuid } = await servers[0].live.create({ fields: liveAttributes })
@@ -86,9 +79,13 @@ describe('Test live socket messages', function () {
       await waitUntilLivePublishedOnAllServers(servers, liveVideoUUID)
       await waitJobs(servers)
 
+      // Ensure remote server doesn't send multiple times the state change event to viewers
+      await servers[0].videos.update({ id: liveVideoUUID, attributes: { name: 'my new live name' } })
+      await waitJobs(servers)
+
       for (const stateChanges of [ localStateChanges, remoteStateChanges ]) {
-        expect(stateChanges).to.have.length.at.least(1)
-        expect(stateChanges[stateChanges.length - 1]).to.equal(VideoState.PUBLISHED)
+        expect(stateChanges).to.have.lengthOf(1)
+        expect(stateChanges[0]).to.equal(VideoState.PUBLISHED)
       }
 
       await stopFfmpeg(ffmpegCommand)
@@ -107,8 +104,8 @@ describe('Test live socket messages', function () {
     it('Should correctly send views change notification', async function () {
       this.timeout(60000)
 
-      let localLastVideoViews = 0
-      let remoteLastVideoViews = 0
+      let localLastVideoViewers = 0
+      let remoteLastVideoViewers = 0
 
       const liveVideoUUID = await createLiveWrapper()
       await waitJobs(servers)
@@ -117,7 +114,7 @@ describe('Test live socket messages', function () {
         const videoId = await servers[0].videos.getId({ uuid: liveVideoUUID })
 
         const localSocket = servers[0].socketIO.getLiveNotificationSocket()
-        localSocket.on('views-change', (data: LiveVideoEventPayload) => { localLastVideoViews = data.viewers })
+        localSocket.on('views-change', (data: LiveVideoEventPayload) => { localLastVideoViewers = data.viewers })
         localSocket.emit('subscribe', { videoId })
       }
 
@@ -125,7 +122,7 @@ describe('Test live socket messages', function () {
         const videoId = await servers[1].videos.getId({ uuid: liveVideoUUID })
 
         const remoteSocket = servers[1].socketIO.getLiveNotificationSocket()
-        remoteSocket.on('views-change', (data: LiveVideoEventPayload) => { remoteLastVideoViews = data.viewers })
+        remoteSocket.on('views-change', (data: LiveVideoEventPayload) => { remoteLastVideoViewers = data.viewers })
         remoteSocket.emit('subscribe', { videoId })
       }
 
@@ -134,17 +131,25 @@ describe('Test live socket messages', function () {
       await waitUntilLivePublishedOnAllServers(servers, liveVideoUUID)
       await waitJobs(servers)
 
-      expect(localLastVideoViews).to.equal(0)
-      expect(remoteLastVideoViews).to.equal(0)
+      expect(localLastVideoViewers).to.equal(0)
+      expect(remoteLastVideoViewers).to.equal(0)
 
-      await servers[0].views.simulateView({ id: liveVideoUUID })
-      await servers[1].views.simulateView({ id: liveVideoUUID })
+      const interval = setInterval(async () => {
+        try {
+          await servers[0].views.simulateView({ id: liveVideoUUID, sessionId: 'session1' })
+          await servers[1].views.simulateView({ id: liveVideoUUID, sessionId: 'session2' })
+        } catch (err) {
+          console.error('Cannot simulate view', err)
+        }
+      }, 1000)
 
+      await wait(6000)
       await waitJobs(servers)
 
-      expect(localLastVideoViews).to.equal(2)
-      expect(remoteLastVideoViews).to.equal(2)
+      expect(localLastVideoViewers).to.equal(2)
+      expect(remoteLastVideoViewers).to.equal(2)
 
+      clearInterval(interval)
       await stopFfmpeg(ffmpegCommand)
     })
 
@@ -177,6 +182,48 @@ describe('Test live socket messages', function () {
       await waitJobs(servers)
 
       expect(stateChanges).to.have.lengthOf(1)
+    })
+
+    it('Should correctly send a force end notification', async function () {
+      this.timeout(60000)
+
+      let hadForcedEndEvent = false
+
+      await servers[0].kill()
+
+      const env = { PEERTUBE_TEST_CONSTANTS_VIDEO_LIVE_CLEANUP_DELAY: '20000' }
+      await servers[0].run({}, { env })
+
+      const liveVideoUUID = await createLiveWrapper({ permanentLive: true })
+
+      {
+        const videoId = await servers[0].videos.getId({ uuid: liveVideoUUID })
+
+        const localSocket = servers[0].socketIO.getLiveNotificationSocket()
+        localSocket.on('force-end', () => { hadForcedEndEvent = true })
+        localSocket.emit('subscribe', { videoId })
+      }
+
+      // Streaming session #1
+      const rtmpOptions = {
+        videoId: liveVideoUUID,
+        copyCodecs: true,
+        fixtureName: 'video_short.mp4'
+      }
+
+      let ffmpegCommand = await servers[0].live.sendRTMPStreamInVideo(rtmpOptions)
+      await servers[0].live.waitUntilPublished({ videoId: liveVideoUUID })
+
+      await stopFfmpeg(ffmpegCommand)
+      await servers[0].live.waitUntilWaiting({ videoId: liveVideoUUID })
+
+      // Streaming session #2
+      ffmpegCommand = await servers[0].live.sendRTMPStreamInVideo(rtmpOptions)
+
+      // eslint-disable-next-line no-unmodified-loop-condition
+      while (!hadForcedEndEvent) {
+        await wait(500)
+      }
     })
   })
 

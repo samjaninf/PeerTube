@@ -1,7 +1,9 @@
 @use '_variables' as *;
 @use '_mixins' as *;
+@use '_form-mixins' as *;
 
 $form-base-input-width: 340px;
+$form-max-width: 500px;
 
 form {
   padding-bottom: 1.5rem;
@@ -9,7 +11,7 @@ form {
 
 my-markdown-textarea {
   display: block;
-  max-width: 500px;
+  max-width: $form-max-width;
 }
 
 .homepage my-markdown-textarea {
@@ -24,8 +26,6 @@ my-markdown-textarea {
 input[type=text],
 input[type=number] {
   @include peertube-input-text($form-base-input-width);
-
-  display: block;
 }
 
 .number-with-unit {
@@ -34,8 +34,8 @@ input[type=number] {
 
   input[type=number] + span {
     position: absolute;
-    top: 0.2em;
-    right: 2.5rem;
+    top: 0.4em;
+    right: 3em;
 
     @media screen and (max-width: $mobile-view) {
       display: none;
@@ -43,43 +43,37 @@ input[type=number] {
   }
 
   input[disabled] {
-    background-color: #f9f9f9;
+    opacity: 0.8;
     pointer-events: none;
   }
 }
 
 input[type=checkbox] {
-  @include peertube-checkbox(1px);
+  @include peertube-checkbox;
 }
 
 .peertube-select-container {
   @include peertube-select-container($form-base-input-width);
 }
 
+my-select-checkbox,
 my-select-options,
-my-select-custom-value,
-my-select-checkbox {
-  @include responsive-width($form-base-input-width);
-
+my-select-custom-value {
   display: block;
+
+  @include responsive-width($form-base-input-width);
 }
 
 input[type=submit] {
-  @include peertube-button;
-  @include orange-button;
-  @include margin-left(auto);
-
   display: flex;
 
+  @include margin-left(auto);
+
   + .form-error {
-    @include margin-left(5px);
-
     display: inline;
-  }
-}
 
-.inner-form-title {
-  @include settings-big-title;
+    @include margin-left(5px);
+  }
 }
 
 .inner-form-description {
@@ -88,10 +82,10 @@ input[type=submit] {
 }
 
 textarea {
-  @include peertube-textarea(500px, 150px);
-
   max-width: 100%;
   display: block;
+
+  @include peertube-textarea(500px, 150px);
 
   &.small {
     height: 75px;
@@ -137,22 +131,14 @@ ngb-tabset:not(.previews) ::ng-deep {
   height: 0;
   width: 100%;
   justify-content: right;
-
-  .callout-link {
-    @include peertube-button-link;
-
-    position: relative;
-    right: 3.3em;
-    top: .3em;
-    font-size: 90%;
-    color: pvar(--mainColor);
-    background-color: pvar(--mainBackgroundColor);
-    padding: 0 .3em;
-  }
 }
 
-my-user-real-quota-info {
-  display: block;
-  margin-top: 5px;
-  font-size: 11px;
+my-actor-banner-edit {
+  max-width: $form-max-width;
+}
+
+h4 {
+  font-weight: $font-bold;
+  margin-bottom: 0.5rem;
+  font-size: 1rem;
 }

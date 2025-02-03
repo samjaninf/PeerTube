@@ -1,13 +1,18 @@
-import { forkJoin } from 'rxjs'
+import { NgIf } from '@angular/common'
 import { AfterViewInit, Component, EventEmitter, OnInit, Output } from '@angular/core'
+import { FormsModule, ReactiveFormsModule } from '@angular/forms'
 import { Router } from '@angular/router'
 import { AuthService, CanComponentDeactivate, HooksService, Notifier, ServerService } from '@app/core'
 import { scrollToTop } from '@app/helpers'
-import { FormReactiveService } from '@app/shared/shared-forms'
-import { Video, VideoCaptionService, VideoChapterService, VideoEdit, VideoService } from '@app/shared/shared-main'
-import { LiveVideoService } from '@app/shared/shared-video-live'
+import { FormReactiveService } from '@app/shared/shared-forms/form-reactive.service'
+import { AlertComponent } from '@app/shared/shared-main/common/alert.component'
+import { VideoCaptionService } from '@app/shared/shared-main/video-caption/video-caption.service'
+import { VideoChapterService } from '@app/shared/shared-main/video/video-chapter.service'
+import { VideoEdit } from '@app/shared/shared-main/video/video-edit.model'
+import { Video } from '@app/shared/shared-main/video/video.model'
+import { VideoService } from '@app/shared/shared-main/video/video.service'
+import { LiveVideoService } from '@app/shared/shared-video-live/live-video.service'
 import { LoadingBarService } from '@ngx-loading-bar/core'
-import { logger } from '@root-helpers/logger'
 import {
   LiveVideo,
   LiveVideoCreate,
@@ -17,6 +22,14 @@ import {
   ServerErrorCode,
   VideoPrivacy
 } from '@peertube/peertube-models'
+import { logger } from '@root-helpers/logger'
+import { forkJoin } from 'rxjs'
+import { SelectChannelComponent } from '../../../shared/shared-forms/select/select-channel.component'
+import { SelectOptionsComponent } from '../../../shared/shared-forms/select/select-options.component'
+import { GlobalIconComponent } from '../../../shared/shared-icons/global-icon.component'
+import { ButtonComponent } from '../../../shared/shared-main/buttons/button.component'
+import { TimeDurationFormatterPipe } from '../../../shared/shared-main/date/time-duration-formatter.pipe'
+import { VideoEditComponent } from '../shared/video-edit.component'
 import { VideoSend } from './video-send'
 
 @Component({
@@ -26,6 +39,19 @@ import { VideoSend } from './video-send'
     '../shared/video-edit.component.scss',
     './video-go-live.component.scss',
     './video-send.scss'
+  ],
+  standalone: true,
+  imports: [
+    NgIf,
+    GlobalIconComponent,
+    SelectChannelComponent,
+    FormsModule,
+    SelectOptionsComponent,
+    ReactiveFormsModule,
+    VideoEditComponent,
+    ButtonComponent,
+    TimeDurationFormatterPipe,
+    AlertComponent
   ]
 })
 export class VideoGoLiveComponent extends VideoSend implements OnInit, AfterViewInit, CanComponentDeactivate {
@@ -82,7 +108,12 @@ export class VideoGoLiveComponent extends VideoSend implements OnInit, AfterView
 
     const video: LiveVideoCreate = {
       name,
-      privacy: this.highestPrivacy,
+
+      // Password privacy needs a password that will be set in the next step
+      privacy: this.firstStepPrivacyId === VideoPrivacy.PASSWORD_PROTECTED
+        ? VideoPrivacy.PRIVATE
+        : this.highestPrivacy,
+
       nsfw: this.serverConfig.instance.isNSFW,
       waitTranscoding: true,
       permanentLive: this.firstStepPermanentLive,

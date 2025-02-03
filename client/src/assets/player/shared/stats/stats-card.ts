@@ -30,40 +30,49 @@ interface InfoElement {
 
 const Component = videojs.getComponent('Component')
 class StatsCard extends Component {
-  options_: StatsCardOptions
+  declare options_: StatsCardOptions
 
-  updateInterval: any
+  declare updateInterval: any
 
-  mode: 'web-video' | 'p2p-media-loader'
+  declare mode: 'web-video' | 'p2p-media-loader'
 
-  metadataStore: any = {}
+  declare metadataStore: any
 
-  intervalMs = 300
-  playerNetworkInfo: PlayerNetworkInfo = {}
+  declare intervalMs: number
+  declare playerNetworkInfo: PlayerNetworkInfo
 
-  private containerEl: HTMLDivElement
-  private infoListEl: HTMLDivElement
+  declare private containerEl: HTMLDivElement
+  declare private infoListEl: HTMLDivElement
 
-  private playerMode: InfoElement
-  private p2p: InfoElement
-  private uuid: InfoElement
-  private viewport: InfoElement
-  private resolution: InfoElement
-  private volume: InfoElement
-  private codecs: InfoElement
-  private color: InfoElement
-  private connection: InfoElement
+  declare private playerMode: InfoElement
+  declare private p2p: InfoElement
+  declare private uuid: InfoElement
+  declare private viewport: InfoElement
+  declare private resolution: InfoElement
+  declare private volume: InfoElement
+  declare private codecs: InfoElement
+  declare private color: InfoElement
+  declare private connection: InfoElement
 
-  private network: InfoElement
-  private transferred: InfoElement
-  private download: InfoElement
+  declare private network: InfoElement
+  declare private transferred: InfoElement
+  declare private download: InfoElement
 
-  private bufferProgress: InfoElement
-  private bufferState: InfoElement
+  declare private bufferProgress: InfoElement
+  declare private bufferState: InfoElement
 
-  private liveLatency: InfoElement
+  declare private liveLatency: InfoElement
 
-  private onNetworkInfoHandler: (_event: any, data: EventPlayerNetworkInfo) => void
+  declare private onNetworkInfoHandler: (_event: any, data: EventPlayerNetworkInfo) => void
+
+  constructor (player: videojs.Player, options?: StatsCardOptions) {
+    super(player, options)
+
+    this.metadataStore = {}
+
+    this.intervalMs = 300
+    this.playerNetworkInfo = {}
+  }
 
   createEl () {
     this.containerEl = videojs.dom.createEl('div', {
@@ -163,9 +172,11 @@ class StatsCard extends Component {
 
     let progress: number
     let latency: string
+    let latencyFromEdge: string
 
     if (this.options_.videoIsLive) {
       latency = secondsToTime(p2pMediaLoader.getLiveLatency())
+      latencyFromEdge = secondsToTime(p2pMediaLoader.getLiveLatencyFromEdge())
     } else {
       progress = this.player().bufferedPercent()
     }
@@ -176,6 +187,7 @@ class StatsCard extends Component {
       codecs,
       buffer,
       latency,
+      latencyFromEdge,
       progress
     }
   }
@@ -261,9 +273,10 @@ class StatsCard extends Component {
     buffer: string
 
     latency?: string
+    latencyFromEdge?: string
     colorSpace?: string
   }) {
-    const { playerNetworkInfo, progress, colorSpace, codecs, resolution, buffer, latency } = options
+    const { playerNetworkInfo, progress, colorSpace, codecs, resolution, buffer, latency, latencyFromEdge } = options
     const { downloadedFromServer, downloadedFromPeers } = playerNetworkInfo
 
     const player = this.player()
@@ -281,15 +294,15 @@ class StatsCard extends Component {
     if (player.muted()) volume += player.localize(' (muted)')
 
     const networkActivity = playerNetworkInfo.downloadSpeed
-      ? `${playerNetworkInfo.downloadSpeed} &dArr; / ${playerNetworkInfo.uploadSpeed} &uArr;`
+      ? `${playerNetworkInfo.downloadSpeed} \u21D3 / ${playerNetworkInfo.uploadSpeed} \u21D1`
       : undefined
 
     let totalTransferred = playerNetworkInfo.totalDownloaded
-      ? `${playerNetworkInfo.totalDownloaded} &dArr;`
+      ? `${playerNetworkInfo.totalDownloaded} \u21D3`
       : ''
 
     if (playerNetworkInfo.totalUploaded) {
-      totalTransferred += `/ ${playerNetworkInfo.totalUploaded} &uArr;`
+      totalTransferred += `/ ${playerNetworkInfo.totalUploaded} \u21D1`
     }
 
     const downloadBreakdown = playerNetworkInfo.downloadedFromServer
@@ -311,16 +324,18 @@ class StatsCard extends Component {
     this.setInfoValue(this.volume, volume)
     this.setInfoValue(this.codecs, codecs)
     this.setInfoValue(this.color, colorSpace)
+    this.setInfoValue(this.transferred, totalTransferred)
     this.setInfoValue(this.connection, playerNetworkInfo.averageBandwidth)
 
     this.setInfoValue(this.network, networkActivity)
-    this.setInfoValue(this.transferred, totalTransferred)
     this.setInfoValue(this.download, downloadBreakdown)
 
     this.setInfoValue(this.bufferProgress, bufferProgress)
     this.setInfoValue(this.bufferState, buffer)
 
-    this.setInfoValue(this.liveLatency, latency)
+    if (latency && latencyFromEdge) {
+      this.setInfoValue(this.liveLatency, player.localize('{1} (from edge: {2})', [ latency, latencyFromEdge ]))
+    }
   }
 
   private setInfoValue (el: InfoElement, value: string) {
@@ -331,16 +346,16 @@ class StatsCard extends Component {
 
     el.root.style.display = 'block'
 
-    if (el.value.innerHTML === value) return
-    el.value.innerHTML = value
+    if (el.value.innerText === value) return
+    el.value.innerText = value
   }
 
-  private buildInfoRow (labelText: string, valueHTML?: string) {
+  private buildInfoRow (labelText: string) {
     const root = videojs.dom.createEl('div') as HTMLElement
     root.style.display = 'none'
 
     const label = videojs.dom.createEl('div', { innerText: labelText }) as HTMLElement
-    const value = videojs.dom.createEl('span', { innerHTML: valueHTML }) as HTMLElement
+    const value = videojs.dom.createEl('span') as HTMLElement
 
     root.appendChild(label)
     root.appendChild(value)
@@ -366,5 +381,5 @@ videojs.registerComponent('StatsCard', StatsCard)
 
 export {
   StatsCard,
-  StatsCardOptions
+  type StatsCardOptions
 }

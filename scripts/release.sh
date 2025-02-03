@@ -34,6 +34,9 @@ if [ "$branch" != "develop" ] && [[ "$branch" != release/* ]]; then
   exit -1
 fi
 
+yarn check --integrity --verify-tree
+(cd client && yarn check --integrity --verify-tree)
+
 version="v$1"
 github_prerelease_option=""
 if [[ "$version" = *"-alpha."* ]] || [[ "$version" = *"-beta."* ]] || [[ "$version" = *"-rc."* ]]; then
@@ -85,10 +88,13 @@ find dist/ packages/core-utils/dist/ \
                           "$directory_name/packages/ffmpeg/dist/" "$directory_name/packages/ffmpeg/package.json" \
                           "$directory_name/packages/node-utils/dist/" "$directory_name/packages/node-utils/package.json" \
                           "$directory_name/packages/models/dist/" "$directory_name/packages/models/package.json" \
+                          "$directory_name/packages/transcription/dist/" "$directory_name/packages/transcription/package.json" \
                           "$directory_name/client/dist/" "$directory_name/client/yarn.lock" \
                           "$directory_name/client/package.json" "$directory_name/config" \
                           "$directory_name/dist" "$directory_name/package.json" \
-                          "$directory_name/scripts" "$directory_name/support" \
+                          "$directory_name/scripts/upgrade.sh" "$directory_name/support/doc" "$directory_name/support/freebsd" \
+                          "$directory_name/support/init.d" "$directory_name/support/nginx" "$directory_name/support/openapi" \
+                          "$directory_name/support/sysctl.d" "$directory_name/support/systemd" \
                           "$directory_name/yarn.lock")
 
   # temporary setup
@@ -133,6 +139,8 @@ find dist/ packages/core-utils/dist/ \
       git push origin master
       git checkout "$branch"
 
+      # Rebuild properly the server, with the declaration files
+      npm run build:server
       # Release types package
       npm run generate-types-package "$version"
       cd packages/types-generator/dist

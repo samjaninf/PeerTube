@@ -1,16 +1,41 @@
-import { Subject, Subscription } from 'rxjs'
+import { NgFor, NgIf } from '@angular/common'
 import { Component, ElementRef, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges, ViewChild } from '@angular/core'
 import { ActivatedRoute } from '@angular/router'
-import { AuthService, ComponentPagination, ConfirmService, hasMoreItems, Notifier, User } from '@app/core'
+import { AuthService, ComponentPagination, ConfirmService, hasMoreItems, Notifier, PluginService, User } from '@app/core'
 import { HooksService } from '@app/core/plugins/hooks.service'
-import { Syndication, VideoDetails } from '@app/shared/shared-main'
-import { VideoComment, VideoCommentService, VideoCommentThreadTree } from '@app/shared/shared-video-comment'
-import { PeerTubeProblemDocument, ServerErrorCode } from '@peertube/peertube-models'
+import { Syndication } from '@app/shared/shared-main/feeds/syndication.model'
+import { VideoDetails } from '@app/shared/shared-main/video/video-details.model'
+import { VideoCommentThreadTree } from '@app/shared/shared-video-comment/video-comment-thread-tree.model'
+import { VideoComment } from '@app/shared/shared-video-comment/video-comment.model'
+import { VideoCommentService } from '@app/shared/shared-video-comment/video-comment.service'
+import { NgbDropdown, NgbDropdownButtonItem, NgbDropdownItem, NgbDropdownMenu, NgbDropdownToggle } from '@ng-bootstrap/ng-bootstrap'
+import { PeerTubeProblemDocument, ServerErrorCode, VideoCommentPolicy } from '@peertube/peertube-models'
+import { lastValueFrom, Subject, Subscription } from 'rxjs'
+import { InfiniteScrollerDirective } from '../../../../shared/shared-main/common/infinite-scroller.directive'
+import { LoaderComponent } from '../../../../shared/shared-main/common/loader.component'
+import { FeedComponent } from '../../../../shared/shared-main/feeds/feed.component'
+import { VideoCommentAddComponent } from './video-comment-add.component'
+import { VideoCommentComponent } from './video-comment.component'
 
 @Component({
   selector: 'my-video-comments',
   templateUrl: './video-comments.component.html',
-  styleUrls: [ './video-comments.component.scss' ]
+  styleUrls: [ './video-comments.component.scss' ],
+  standalone: true,
+  imports: [
+    FeedComponent,
+    NgbDropdown,
+    NgbDropdownToggle,
+    NgbDropdownMenu,
+    NgbDropdownButtonItem,
+    NgbDropdownItem,
+    NgIf,
+    VideoCommentAddComponent,
+    InfiniteScrollerDirective,
+    VideoCommentComponent,
+    NgFor,
+    LoaderComponent
+  ]
 })
 export class VideoCommentsComponent implements OnInit, OnChanges, OnDestroy {
   @ViewChild('commentHighlightBlock') commentHighlightBlock: ElementRef
@@ -36,6 +61,8 @@ export class VideoCommentsComponent implements OnInit, OnChanges, OnDestroy {
   commentReplyRedraftValue: string
   commentThreadRedraftValue: string
 
+  commentsEnabled: boolean
+
   threadComments: { [ id: number ]: VideoCommentThreadTree } = {}
   threadLoading: { [ id: number ]: boolean } = {}
 
@@ -51,10 +78,13 @@ export class VideoCommentsComponent implements OnInit, OnChanges, OnDestroy {
     private confirmService: ConfirmService,
     private videoCommentService: VideoCommentService,
     private activatedRoute: ActivatedRoute,
-    private hooks: HooksService
+    private hooks: HooksService,
+    private pluginService: PluginService
   ) {}
 
   ngOnInit () {
+    this.pluginService.addAction('video-watch-comment-list:load-data', () => this.loadMoreThreads(true))
+
     // Find highlighted comment in params
     this.sub = this.activatedRoute.params.subscribe(
       params => {
@@ -73,6 +103,8 @@ export class VideoCommentsComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   ngOnDestroy () {
+    this.pluginService.removeAction('video-watch-comment-list:load-data')
+
     if (this.sub) this.sub.unsubscribe()
   }
 
@@ -118,7 +150,11 @@ export class VideoCommentsComponent implements OnInit, OnChanges, OnDestroy {
     })
   }
 
-  loadMoreThreads () {
+  async loadMoreThreads (reset = false) {
+    if (reset === true) {
+      this.componentPagination.currentPage = 1
+    }
+
     const params = {
       videoId: this.video.uuid,
       videoPassword: this.videoPassword,
@@ -134,19 +170,20 @@ export class VideoCommentsComponent implements OnInit, OnChanges, OnDestroy {
       'filter:api.video-watch.video-threads.list.result'
     )
 
-    obs.subscribe({
-      next: res => {
-        this.comments = this.comments.concat(res.data)
-        this.componentPagination.totalItems = res.total
-        this.totalNotDeletedComments = res.totalNotDeletedComments
+    try {
+      const res = await lastValueFrom(obs)
 
-        this.onDataSubject.next(res.data)
+      if (reset) this.comments = []
+      this.comments = this.comments.concat(res.data)
+      this.componentPagination.totalItems = res.total
+      this.totalNotDeletedComments = res.totalNotDeletedComments
 
-        this.hooks.runAction('action:video-watch.video-threads.loaded', 'video-watch', { data: this.componentPagination })
-      },
+      this.onDataSubject.next(res.data)
 
-      error: err => this.notifier.error(err.message)
-    })
+      this.hooks.runAction('action:video-watch.video-threads.loaded', 'video-watch', { data: this.componentPagination })
+    } catch (err) {
+      this.notifier.error(err.message)
+    }
   }
 
   onCommentThreadCreated (comment: VideoComment) {
@@ -233,6 +270,19 @@ export class VideoCommentsComponent implements OnInit, OnChanges, OnDestroy {
     }
   }
 
+  onWantToApprove (comment: VideoComment) {
+    this.videoCommentService.approveComments([ { commentId: comment.id, videoId: comment.videoId } ])
+      .subscribe({
+        next: () => {
+          comment.heldForReview = false
+
+          this.notifier.success($localize`Comment approved`)
+        },
+
+        error: err => this.notifier.error(err.message)
+      })
+  }
+
   isUserLoggedIn () {
     return this.authService.isLoggedIn()
   }
@@ -252,23 +302,25 @@ export class VideoCommentsComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   private resetVideo () {
-    if (this.video.commentsEnabled === true) {
-      // Reset all our fields
-      this.highlightedThread = null
-      this.comments = []
-      this.threadComments = {}
-      this.threadLoading = {}
-      this.inReplyToCommentId = undefined
-      this.componentPagination.currentPage = 1
-      this.componentPagination.totalItems = null
-      this.totalNotDeletedComments = null
+    if (this.video.commentsPolicy.id === VideoCommentPolicy.DISABLED) return
 
-      this.syndicationItems = this.videoCommentService.getVideoCommentsFeeds(this.video)
-      this.loadMoreThreads()
+    // Reset all our fields
+    this.highlightedThread = null
+    this.comments = []
+    this.threadComments = {}
+    this.threadLoading = {}
+    this.inReplyToCommentId = undefined
+    this.componentPagination.currentPage = 1
+    this.componentPagination.totalItems = null
+    this.totalNotDeletedComments = null
 
-      if (this.activatedRoute.snapshot.params['threadId']) {
-        this.processHighlightedThread(+this.activatedRoute.snapshot.params['threadId'])
-      }
+    this.commentsEnabled = true
+
+    this.syndicationItems = this.videoCommentService.getVideoCommentsFeeds(this.video)
+    this.loadMoreThreads()
+
+    if (this.activatedRoute.snapshot.params['threadId']) {
+      this.processHighlightedThread(+this.activatedRoute.snapshot.params['threadId'])
     }
   }
 

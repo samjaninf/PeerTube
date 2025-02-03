@@ -1,10 +1,11 @@
 import { Component, Input, OnChanges } from '@angular/core'
-import { FromNowPipe } from '../angular/from-now.pipe'
+import { FromNowPipe } from './from-now.pipe'
 
 @Component({
   selector: 'my-date-toggle',
   templateUrl: './date-toggle.component.html',
-  styleUrls: [ './date-toggle.component.scss' ]
+  styleUrls: [ './date-toggle.component.scss' ],
+  standalone: true
 })
 export class DateToggleComponent implements OnChanges {
   @Input() date: Date
@@ -24,9 +25,11 @@ export class DateToggleComponent implements OnChanges {
   }
 
   getTitle () {
-    return this.toggled
+    const target = this.toggled
       ? this.dateRelative
       : this.dateAbsolute
+
+    return $localize`Toggle this date format to "${target}"`
   }
 
   getContent () {

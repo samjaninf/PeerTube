@@ -17,7 +17,7 @@ Follow the steps of the [dependencies guide](/support/doc/dependencies.md).
 Create a `peertube` user with `/var/www/peertube` home:
 
 ```bash
-sudo useradd -m -d /var/www/peertube -s /bin/bash -p peertube peertube
+sudo useradd -m -d /var/www/peertube -s /usr/sbin/nologin -p peertube peertube
 ```
 
 Set its password:
@@ -137,16 +137,16 @@ Copy the nginx configuration template:
 sudo cp /var/www/peertube/peertube-latest/support/nginx/peertube /etc/nginx/sites-available/peertube
 ```
 
-Then set the domain for the webserver configuration file.
-Replace `[peertube-domain]` with the domain for the peertube server.
+Set the domain for the webserver configuration file by replacing `[peertube-domain]` with the domain for the peertube server:
 
 ```bash
 sudo sed -i 's/${WEBSERVER_HOST}/[peertube-domain]/g' /etc/nginx/sites-available/peertube
 sudo sed -i 's/${PEERTUBE_HOST}/127.0.0.1:9000/g' /etc/nginx/sites-available/peertube
 ```
 
-Then modify the webserver configuration file. Please pay attention to the `alias` keys of the static locations.
-It should correspond to the paths of your storage directories (set in the configuration file inside the `storage` key).
+Then modify the webserver configuration file. Please pay attention to:
+ * the `alias`, `root` and `rewrite` directives paths, the paths must correspond to your PeerTube filesystem location
+ * the `proxy_limit_rate` and `limit_rate` directives if you plan to stream high bitrate videos (like 4K at 60FPS)
 
 ```bash
 sudo vim /etc/nginx/sites-available/peertube
@@ -163,7 +163,7 @@ To generate the certificate for your domain as required to make https work you c
 ```bash
 sudo systemctl stop nginx
 sudo certbot certonly --standalone --post-hook "systemctl restart nginx"
-sudo systemctl reload nginx
+sudo systemctl restart nginx
 ```
 
 Certbot should have installed a cron to automatically renew your certificate.
@@ -304,6 +304,8 @@ cd /var/www/peertube/peertube-latest/scripts && sudo -H -u peertube ./upgrade.sh
 sudo systemctl restart peertube # Or use your OS command to restart PeerTube if you don't use systemd
 ```
 
+You may want to run `sudo -u peertube yarn cache clean` after several upgrades to free up disk space.
+
 <details>
 <summary><strong>Prefer manual upgrade?</strong></summary>
 
@@ -359,7 +361,7 @@ Check for configuration changes, and report them in your `config/production.yaml
 
 ```bash
 cd /var/www/peertube/versions
-diff -u "$(ls --sort=t | head -2 | tail -1)/config/production.yaml.example" "$(ls --sort=t | head -1)/config/production.yaml.example"
+diff -u "$(ls -t | head -2 | tail -1)/config/production.yaml.example" "$(ls -t | head -1)/config/production.yaml.example"
 ```
 
 ### Update nginx configuration
@@ -368,7 +370,7 @@ Check changes in nginx configuration:
 
 ```bash
 cd /var/www/peertube/versions
-diff -u "$(ls --sort=t | head -2 | tail -1)/support/nginx/peertube" "$(ls --sort=t | head -1)/support/nginx/peertube"
+diff -u "$(ls -t | head -2 | tail -1)/support/nginx/peertube" "$(ls -t | head -1)/support/nginx/peertube"
 ```
 
 ### Update systemd service
@@ -377,7 +379,7 @@ Check changes in systemd configuration:
 
 ```bash
 cd /var/www/peertube/versions
-diff -u "$(ls --sort=t | head -2 | tail -1)/support/systemd/peertube.service" "$(ls --sort=t | head -1)/support/systemd/peertube.service"
+diff -u "$(ls -t | head -2 | tail -1)/support/systemd/peertube.service" "$(ls -t | head -1)/support/systemd/peertube.service"
 ```
 
 ### Restart PeerTube

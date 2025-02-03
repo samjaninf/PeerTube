@@ -1,5 +1,5 @@
 import { splitIntoArray, toBoolean } from '@app/helpers'
-import { escapeHTML, getAllPrivacies } from '@peertube/peertube-core-utils'
+import { getAllPrivacies } from '@peertube/peertube-core-utils'
 import {
   BooleanBothQuery,
   NSFWPolicyType,
@@ -15,6 +15,14 @@ type VideoFiltersKeys = {
 }
 
 export type VideoFilterScope = 'local' | 'federated'
+
+export type VideoFilterActive = {
+  key: string
+  canRemove: boolean
+  label: string
+  value?: string
+  rawValue?: string[] | number[]
+}
 
 export class VideoFilters {
   sort: VideoSortField
@@ -37,10 +45,11 @@ export class VideoFilters {
     [ 'categoryOneOf', undefined ],
     [ 'scope', 'federated' ],
     [ 'allVideos', false ],
-    [ 'live', 'both' ]
+    [ 'live', 'both' ],
+    [ 'search', '' ]
   ])
 
-  private activeFilters: { key: string, canRemove: boolean, label: string, value?: string }[] = []
+  private activeFilters: VideoFilterActive[] = []
   private defaultNSFWPolicy: NSFWPolicyType
 
   private onChangeCallbacks: (() => void)[] = []
@@ -56,6 +65,8 @@ export class VideoFilters {
 
     this.reset()
   }
+
+  // ---------------------------------------------------------------------------
 
   onChange (cb: () => void) {
     this.onChangeCallbacks.push(cb)
@@ -73,6 +84,8 @@ export class VideoFilters {
     }
   }
 
+  // ---------------------------------------------------------------------------
+
   setDefaultScope (scope: VideoFilterScope) {
     this.defaultValues.set('scope', scope)
   }
@@ -85,6 +98,8 @@ export class VideoFilters {
     this.updateDefaultNSFW(nsfwPolicy)
   }
 
+  // ---------------------------------------------------------------------------
+
   reset (specificKey?: string) {
     for (const [ key, value ] of this.defaultValues) {
       if (specificKey && specificKey !== key) continue
@@ -95,32 +110,36 @@ export class VideoFilters {
     this.buildActiveFilters()
   }
 
+  // ---------------------------------------------------------------------------
+
   load (obj: Partial<AttributesOnly<VideoFilters>>) {
-    // FIXME: We may use <ng-option> that doesn't escape HTML so prefer to escape things
-    // https://github.com/ng-select/ng-select/issues/1363
+    if (obj.sort !== undefined) this.sort = obj.sort
 
-    const escapeIfNeeded = (value: any) => {
-      if (typeof value === 'string') return escapeHTML(value)
+    if (obj.nsfw !== undefined) this.nsfw = obj.nsfw
 
-      return value
-    }
+    if (obj.languageOneOf !== undefined) this.languageOneOf = splitIntoArray(obj.languageOneOf)
+    if (obj.categoryOneOf !== undefined) this.categoryOneOf = splitIntoArray(obj.categoryOneOf)
 
-    if (obj.sort !== undefined) this.sort = escapeIfNeeded(obj.sort) as VideoSortField
-
-    if (obj.nsfw !== undefined) this.nsfw = escapeIfNeeded(obj.nsfw) as BooleanBothQuery
-
-    if (obj.languageOneOf !== undefined) this.languageOneOf = splitIntoArray(escapeIfNeeded(obj.languageOneOf))
-    if (obj.categoryOneOf !== undefined) this.categoryOneOf = splitIntoArray(escapeIfNeeded(obj.categoryOneOf))
-
-    if (obj.scope !== undefined) this.scope = escapeIfNeeded(obj.scope) as VideoFilterScope
+    if (obj.scope !== undefined) this.scope = obj.scope
     if (obj.allVideos !== undefined) this.allVideos = toBoolean(obj.allVideos)
 
-    if (obj.live !== undefined) this.live = escapeIfNeeded(obj.live) as BooleanBothQuery
+    if (obj.live !== undefined) this.live = obj.live
 
-    if (obj.search !== undefined) this.search = escapeIfNeeded(obj.search)
+    if (obj.search !== undefined) this.search = obj.search
 
     this.buildActiveFilters()
   }
+
+  clone () {
+    const cloned = new VideoFilters(this.defaultValues.get('sort'), this.defaultValues.get('scope'), this.hiddenFields)
+    cloned.setNSFWPolicy(this.defaultNSFWPolicy)
+
+    cloned.load(this.toUrlObject())
+
+    return cloned
+  }
+
+  // ---------------------------------------------------------------------------
 
   buildActiveFilters () {
     this.activeFilters = []
@@ -137,8 +156,8 @@ export class VideoFilters {
       canRemove: false,
       label: $localize`Scope`,
       value: this.scope === 'federated'
-        ? $localize`Federated`
-        : $localize`Local`
+        ? $localize`All platforms`
+        : $localize`This platform`
     })
 
     if (this.languageOneOf && this.languageOneOf.length !== 0) {
@@ -146,7 +165,8 @@ export class VideoFilters {
         key: 'languageOneOf',
         canRemove: true,
         label: $localize`Languages`,
-        value: this.languageOneOf.map(l => l.toUpperCase()).join(', ')
+        value: this.languageOneOf.map(l => l.toUpperCase()).join(', '),
+        rawValue: this.languageOneOf
       })
     }
 
@@ -155,7 +175,8 @@ export class VideoFilters {
         key: 'categoryOneOf',
         canRemove: true,
         label: $localize`Categories`,
-        value: this.categoryOneOf.join(', ')
+        value: this.categoryOneOf.join(', '),
+        rawValue: this.categoryOneOf
       })
     }
 
@@ -171,13 +192,13 @@ export class VideoFilters {
       this.activeFilters.push({
         key: 'live',
         canRemove: true,
-        label: $localize`Live videos`
+        label: $localize`Only lives`
       })
     } else if (this.live === 'false') {
       this.activeFilters.push({
         key: 'live',
         canRemove: true,
-        label: $localize`VOD videos`
+        label: $localize`Only VOD`
       })
     }
 
@@ -188,6 +209,8 @@ export class VideoFilters {
   getActiveFilters () {
     return this.activeFilters
   }
+
+  // ---------------------------------------------------------------------------
 
   toFormObject (): VideoFiltersKeys {
     const result: Partial<VideoFiltersKeys> = {}
@@ -241,6 +264,8 @@ export class VideoFilters {
       isLive
     }
   }
+
+  // ---------------------------------------------------------------------------
 
   getNSFWDisplayLabel () {
     if (this.defaultNSFWPolicy === 'blur') return $localize`Blurred`

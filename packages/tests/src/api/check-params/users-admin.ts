@@ -187,7 +187,7 @@ describe('Test users admin API validators', function () {
       await makePostBodyRequest({
         url: server.url,
         path,
-        token: 'super token',
+        token: 'supertoken',
         fields: baseCorrectParams,
         expectedStatus: HttpStatusCode.UNAUTHORIZED_401
       })
@@ -206,15 +206,22 @@ describe('Test users admin API validators', function () {
     })
 
     it('Should fail if we add a user with the same email', async function () {
-      const fields = { ...baseCorrectParams, email: 'user1@example.com' }
+      const emails = [
+        'user1@example.com',
+        'uSer1@example.com'
+      ]
 
-      await makePostBodyRequest({
-        url: server.url,
-        path,
-        token: server.accessToken,
-        fields,
-        expectedStatus: HttpStatusCode.CONFLICT_409
-      })
+      for (const email of emails) {
+        const fields = { ...baseCorrectParams, email }
+
+        await makePostBodyRequest({
+          url: server.url,
+          path,
+          token: server.accessToken,
+          fields,
+          expectedStatus: HttpStatusCode.CONFLICT_409
+        })
+      }
     })
 
     it('Should fail with an invalid videoQuota', async function () {
@@ -309,7 +316,7 @@ describe('Test users admin API validators', function () {
       await makeGetRequest({
         url: server.url,
         path: path + userId,
-        token: 'super token',
+        token: 'supertoken',
         expectedStatus: HttpStatusCode.UNAUTHORIZED_401
       })
     })
@@ -331,6 +338,18 @@ describe('Test users admin API validators', function () {
       }
 
       await makePutBodyRequest({ url: server.url, path: path + userId, token: server.accessToken, fields })
+    })
+
+    it('Should fail with an existing email attribute', async function () {
+      const fields = { email: 'modeRator1@example.com' }
+
+      await makePutBodyRequest({
+        url: server.url,
+        path: path + userId,
+        token: server.accessToken,
+        fields,
+        expectedStatus: HttpStatusCode.CONFLICT_409
+      })
     })
 
     it('Should fail with an invalid emailVerified attribute', async function () {
@@ -383,7 +402,7 @@ describe('Test users admin API validators', function () {
       await makePutBodyRequest({
         url: server.url,
         path: path + userId,
-        token: 'super token',
+        token: 'supertoken',
         fields,
         expectedStatus: HttpStatusCode.UNAUTHORIZED_401
       })

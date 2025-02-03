@@ -1,0 +1,14 @@
+@use '_variables' as *;
+@use '_mixins' as *;
+
+.banner {
+  @include block-ratio('img', $banner-inverted-ratio);
+
+  img {
+    border-radius: 15px;
+  }
+}
+
+.pt-icon {
+  @include icon(24px);
+}

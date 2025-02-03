@@ -1,13 +1,14 @@
-<div class="d-inline-flex position-relative" id="typeahead-container">
+<div class="position-relative" id="typeahead-container">
+  <button class="button-unstyle search-button" title="Search" i18n-title (click)="doSearch()">
+    <my-global-icon iconName="search"></my-global-icon>
+  </button>
+
   <input
-    type="search" id="search-video" name="search-video" #searchVideo i18n-placeholder placeholder="Search videos, playlists, channels…"
+    type="search" id="search-video" name="search-video" #searchVideo
+    i18n-ariaLabel aria-label="Search videos, playlists, channels…" i18n-placeholder placeholder="Search videos, channels…"
     [(ngModel)]="search" (ngModelChange)="onSearchChange()" (keydown)="handleKey($event)"
-    aria-label="Search" autocomplete="off"
+    autocomplete="off" aria-describedby="typeahead-input-help"
   >
-  <my-global-icon
-    title="Search" i18n-title role="button"
-    iconName="search" class="icon icon-search" (click)="doSearch()" (keydown.enter)="doSearch()"
-  ></my-global-icon>
 
   <div class="position-absolute jump-to-suggestions">
 
@@ -17,40 +18,38 @@
         role="option" aria-selected="true" tabindex="0"
         (mouseenter)="onSuggestionHover(i)" (click)="onSuggestionClicked(result)" (keyup.enter)="onSuggestionClicked(result)"
       >
-        <my-suggestion [result]="result" [highlight]="search"></my-suggestion>
+        <my-suggestion
+          [result]="result" [highlight]="search"
+          [describedby]="showSearchGlobalHelp() ? 'typeahead-help' : undefined"
+        ></my-suggestion>
       </li>
     </ul>
 
     <!-- suggestion help, not shown until one of the suggestions is selected and specific to that suggestion -->
-    <div *ngIf="showSearchGlobalHelp()" id="typeahead-help" class="overflow-hidden">
+    <div *ngIf="showSearchGlobalHelp()" id="typeahead-suggestion-help" class="overflow-hidden">
       <div class="d-flex justify-content-between">
-        <div class="small-title" i18n>GLOBAL SEARCH</div>
-        <div class="advanced-search-status muted">
-          <span *ngIf="serverConfig" class="me-1" i18n>using {{ serverConfig.search.searchIndex.url }}</span>
-        </div>
+        <div class="section-label mb-2" i18n>GLOBAL SEARCH</div>
+
+        <span *ngIf="serverConfig" class="muted" i18n>using {{ serverConfig.search.searchIndex.url }}</span>
       </div>
+
       <div class="muted" i18n>Results will be augmented with those of a third-party index. Only data necessary to make the query will be sent.</div>
     </div>
 
     <!-- search instructions, when search input is empty -->
-    <div *ngIf="areInstructionsDisplayed()" id="typeahead-instructions" class="overflow-hidden">
+    <div [hidden]="this.search" id="typeahead-input-help" class="overflow-hidden">
       <span class="muted" i18n>Your query will be matched against video names or descriptions, channel names.</span>
-      <div class="d-flex justify-content-between mt-3">
-        <div class="small-title" i18n>ADVANCED SEARCH</div>
-        <div class="advanced-search-status c-help">
-          <span [ngClass]="canSearchAnyURI ? 'text-success' : 'muted'" i18n-title title="Determines whether you can resolve any distant content, or if this instance only allows doing so for instances it follows.">
-            <span *ngIf="canSearchAnyURI()" class="me-1" i18n>any instance</span>
-            <span *ngIf="!canSearchAnyURI()" class="me-1" i18n>only followed instances</span>
-          </span>
-        </div>
-      </div>
+      <div class="mt-3 mb-2 section-label" i18n>ADVANCED SEARCH</div>
+
       <ul>
         <li>
-          <em>@channel_id@domain</em> <span class="flex-auto muted" i18n>will list the matching channel</span>
+          <em>&#64;channel_id&#64;domain</em> <span class="flex-auto muted" i18n>will list the matching channel</span>
         </li>
+
         <li>
           <em>URL</em> <span class="muted" i18n>will list the matching channel</span>
         </li>
+
         <li>
           <em>UUID</em> <span class="muted" i18n>will list the matching video</span>
         </li>

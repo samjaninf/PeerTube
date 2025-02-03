@@ -3,13 +3,13 @@ import { readdir } from 'fs/promises'
 import { join } from 'path'
 import { io, Socket } from 'socket.io-client'
 import { pick, shuffle, wait } from '@peertube/peertube-core-utils'
-import { PeerTubeProblemDocument, ServerErrorCode } from '@peertube/peertube-models'
+import { PeerTubeProblemDocument, RunnerJobType, ServerErrorCode } from '@peertube/peertube-models'
 import { PeerTubeServer as PeerTubeServerCommand } from '@peertube/peertube-server-commands'
 import { ConfigManager } from '../shared/index.js'
 import { IPCServer } from '../shared/ipc/index.js'
 import { logger } from '../shared/logger.js'
 import { JobWithToken, processJob } from './process/index.js'
-import { isJobSupported } from './shared/index.js'
+import { getSupportedJobsList, isJobSupported } from './shared/index.js'
 
 type PeerTubeServer = PeerTubeServerCommand & {
   runnerToken: string
@@ -18,21 +18,29 @@ type PeerTubeServer = PeerTubeServerCommand & {
 }
 
 export class RunnerServer {
-  private static instance: RunnerServer
-
   private servers: PeerTubeServer[] = []
   private processingJobs: { job: JobWithToken, server: PeerTubeServer }[] = []
 
   private checkingAvailableJobs = false
 
+  private gracefulShutdown = false
   private cleaningUp = false
+  private initialized = false
+
+  private readonly enabledJobsArray: RunnerJobType[]
 
   private readonly sockets = new Map<PeerTubeServer, Socket>()
 
-  private constructor () {}
+  constructor (private readonly enabledJobs?: Set<RunnerJobType>) {
+    this.enabledJobsArray = enabledJobs
+      ? Array.from(enabledJobs)
+      : getSupportedJobsList()
+  }
 
   async run () {
     logger.info('Running PeerTube runner in server mode')
+
+    logger.info('Supported and enabled job types: ' + this.enabledJobsArray.join(', '))
 
     await ConfigManager.Instance.load()
 
@@ -70,6 +78,7 @@ export class RunnerServer {
 
     logger.info(`Using ${ConfigManager.Instance.getTranscodingDirectory()} for transcoding directory`)
 
+    this.initialized = true
     await this.checkAvailableJobs()
   }
 
@@ -98,8 +107,6 @@ export class RunnerServer {
     await this.saveRegisteredInstancesInConf()
 
     logger.info(`Registered runner ${runnerName} on ${url}`)
-
-    await this.checkAvailableJobs()
   }
 
   private loadServer (server: PeerTubeServer) {
@@ -114,8 +121,15 @@ export class RunnerServer {
     })
 
     socket.on('connect_error', err => logger.warn({ err }, `Cannot connect to ${url} socket`))
-    socket.on('connect', () => logger.info(`Connected to ${url} socket`))
-    socket.on('available-jobs', () => this.checkAvailableJobs())
+    socket.on('available-jobs', () => this.safeAsyncCheckAvailableJobs())
+
+    socket.on('connect', () => {
+      logger.info(`Connected to ${url} socket`)
+
+      this.safeAsyncCheckAvailableJobs()
+    })
+    socket.on('disconnect', () => logger.warn(`Disconnected from ${url} socket`))
+    socket.io.on('ping', () => logger.debug(`Received a "ping" for ${url}`))
 
     this.sockets.set(server, socket)
   }
@@ -169,8 +183,24 @@ export class RunnerServer {
 
   // ---------------------------------------------------------------------------
 
+  requestGracefulShutdown () {
+    logger.info('Received graceful shutdown request')
+
+    this.gracefulShutdown = true
+    this.exitGracefullyIfNoProcessingJobs()
+  }
+
+  // ---------------------------------------------------------------------------
+
+  private safeAsyncCheckAvailableJobs () {
+    this.checkAvailableJobs()
+      .catch(err => logger.error({ err }, `Cannot check available jobs`))
+  }
+
   private async checkAvailableJobs () {
+    if (!this.initialized) return
     if (this.checkingAvailableJobs) return
+    if (this.gracefulShutdown) return
 
     this.checkingAvailableJobs = true
 
@@ -187,18 +217,20 @@ export class RunnerServer {
 
         await this.tryToExecuteJobAsync(server, job)
       } catch (err) {
+        hadAvailableJob = false
+
         const code = (err.res?.body as PeerTubeProblemDocument)?.code
 
-        if (code === ServerErrorCode.RUNNER_JOB_NOT_IN_PROCESSING_STATE) {
-          logger.debug({ err }, 'Runner job is not in processing state anymore, retry later')
-          return
+        if (code === ServerErrorCode.RUNNER_JOB_NOT_IN_PENDING_STATE) {
+          logger.debug({ err }, 'Runner job is not in pending state anymore, retry later')
+          continue
         }
 
         if (code === ServerErrorCode.UNKNOWN_RUNNER_TOKEN) {
           logger.error({ err }, `Unregistering ${server.url} as the runner token ${server.runnerToken} is invalid`)
 
           await this.unregisterRunner({ url: server.url, runnerName: server.runnerName })
-          return
+          continue
         }
 
         logger.error({ err }, `Cannot request/accept job on ${server.url} for runner ${server.runnerName}`)
@@ -218,9 +250,16 @@ export class RunnerServer {
   private async requestJob (server: PeerTubeServer) {
     logger.debug(`Requesting jobs on ${server.url} for runner ${server.runnerName}`)
 
-    const { availableJobs } = await server.runnerJobs.request({ runnerToken: server.runnerToken })
+    const { availableJobs } = await server.runnerJobs.request({
+      runnerToken: server.runnerToken,
 
-    const filtered = availableJobs.filter(j => isJobSupported(j))
+      jobTypes: this.enabledJobsArray.length !== getSupportedJobsList().length
+        ? this.enabledJobsArray
+        : undefined
+    })
+
+    // FIXME: remove in PeerTube v8: jobTypes has been introduced in PeerTube v7, so do the filter here too
+    const filtered = availableJobs.filter(j => isJobSupported(j, this.enabledJobs))
 
     if (filtered.length === 0) {
       logger.debug(`No job available on ${server.url} for runner ${server.runnerName}`)
@@ -231,7 +270,15 @@ export class RunnerServer {
   }
 
   private async tryToExecuteJobAsync (server: PeerTubeServer, jobToAccept: { uuid: string }) {
-    if (!this.canProcessMoreJobs()) return
+    if (!this.canProcessMoreJobs()) {
+      if (!this.gracefulShutdown) {
+        logger.info(
+          `Do not process more jobs (processing ${this.processingJobs.length} / ${ConfigManager.Instance.getConfig().jobs.concurrency})`
+        )
+      }
+
+      return
+    }
 
     const { job } = await server.runnerJobs.accept({ runnerToken: server.runnerToken, jobUUID: jobToAccept.uuid })
 
@@ -248,6 +295,8 @@ export class RunnerServer {
       .finally(() => {
         this.processingJobs = this.processingJobs.filter(p => p !== processingJob)
 
+        if (this.gracefulShutdown) this.exitGracefullyIfNoProcessingJobs()
+
         return this.checkAvailableJobs()
       })
   }
@@ -263,6 +312,9 @@ export class RunnerServer {
   }
 
   private canProcessMoreJobs () {
+    if (this.cleaningUp) return false
+    if (this.gracefulShutdown) return false
+
     return this.processingJobs.length < ConfigManager.Instance.getConfig().jobs.concurrency
   }
 
@@ -274,6 +326,15 @@ export class RunnerServer {
     for (const file of files) {
       await remove(join(ConfigManager.Instance.getTranscodingDirectory(), file))
     }
+  }
+
+  private exitGracefullyIfNoProcessingJobs () {
+    if (this.processingJobs.length !== 0) return
+
+    logger.info('Shutting down the runner after graceful shutdown request')
+
+    this.onExit()
+      .catch(err => logger.error({ err }, 'Cannot exit runner'))
   }
 
   private async onExit () {
@@ -299,9 +360,5 @@ export class RunnerServer {
     }
 
     process.exit()
-  }
-
-  static get Instance () {
-    return this.instance || (this.instance = new this())
   }
 }

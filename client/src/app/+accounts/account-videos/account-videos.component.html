@@ -1,21 +1,24 @@
-<my-videos-list
-  *ngIf="account"
+<h1 class="visually-hidden" i18n>Videos</h1>
 
-  [title]="title"
-  [displayTitle]="false"
+<my-videos-list
+  #videosList
+
+  *ngIf="account"
 
   [getVideosObservableFunction]="getVideosObservableFunction"
   [getSyndicationItemsFunction]="getSyndicationItemsFunction"
 
   [defaultSort]="defaultSort"
 
-  [displayFilters]="true"
-  [displayModerationBlock]="true"
+  displayFilters="true"
+  displayModerationBlock="true"
   [displayAsRow]="displayAsRow()"
 
-  [hideScopeFilter]="true"
+  hideScopeFilter="true"
 
-  [loadUserVideoPreferences]="true"
+  loadUserVideoPreferences="true"
+
+  highlightLives="true"
 
   [disabled]="disabled"
 >

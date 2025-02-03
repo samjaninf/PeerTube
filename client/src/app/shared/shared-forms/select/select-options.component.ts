@@ -1,29 +1,68 @@
-import { Component, forwardRef, HostListener, Input } from '@angular/core'
-import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms'
+import { CommonModule } from '@angular/common'
+import {
+  AfterContentInit,
+  booleanAttribute,
+  ChangeDetectorRef,
+  Component,
+  ContentChildren,
+  forwardRef,
+  HostListener,
+  Input,
+  numberAttribute,
+  QueryList,
+  TemplateRef
+} from '@angular/core'
+import { ControlValueAccessor, FormsModule, NG_VALUE_ACCESSOR } from '@angular/forms'
+import { PeerTubeTemplateDirective } from '@app/shared/shared-main/common/peertube-template.directive'
+import { DropdownModule } from 'primeng/dropdown'
 import { SelectOptionsItem } from '../../../../types/select-options-item.model'
 
 @Component({
   selector: 'my-select-options',
-  styleUrls: [ './select-shared.component.scss' ],
+
   templateUrl: './select-options.component.html',
+  styleUrls: [ './select-options.component.scss' ],
+
   providers: [
     {
       provide: NG_VALUE_ACCESSOR,
       useExisting: forwardRef(() => SelectOptionsComponent),
       multi: true
     }
-  ]
+  ],
+  standalone: true,
+  imports: [ DropdownModule, FormsModule, CommonModule ]
 })
-export class SelectOptionsComponent implements ControlValueAccessor {
+export class SelectOptionsComponent implements AfterContentInit, ControlValueAccessor {
   @Input() items: SelectOptionsItem[] = []
-  @Input() clearable = false
-  @Input() searchable = false
-  @Input() groupBy: string
-  @Input() labelForId: string
-  @Input() searchFn: any
+
+  @Input({ required: true }) inputId: string
+
+  @Input({ transform: booleanAttribute }) clearable = false
+  @Input({ transform: booleanAttribute }) filter = false
+
+  @Input({ transform: booleanAttribute }) virtualScroll = false
+  @Input({ transform: numberAttribute }) virtualScrollItemSize = 39
+
+  @ContentChildren(PeerTubeTemplateDirective) templates: QueryList<PeerTubeTemplateDirective<'item'>>
+
+  customItemTemplate: TemplateRef<any>
 
   selectedId: number | string
   disabled = false
+
+  wroteValue: number | string
+
+  constructor (private cd: ChangeDetectorRef) {
+
+  }
+
+  ngAfterContentInit () {
+    {
+      const t = this.templates.find(t => t.name === 'item')
+      if (t) this.customItemTemplate = t.template
+    }
+  }
 
   propagateChange = (_: any) => { /* empty */ }
 
@@ -36,6 +75,10 @@ export class SelectOptionsComponent implements ControlValueAccessor {
 
   writeValue (id: number | string) {
     this.selectedId = id
+
+    // https://github.com/primefaces/primeng/issues/14609 workaround
+    this.wroteValue = id
+    this.cd.detectChanges()
   }
 
   registerOnChange (fn: (_: any) => void) {
@@ -47,10 +90,20 @@ export class SelectOptionsComponent implements ControlValueAccessor {
   }
 
   onModelChange () {
+    if (this.wroteValue !== undefined && this.wroteValue === this.selectedId) {
+      return
+    }
+
+    this.wroteValue = undefined
+
     this.propagateChange(this.selectedId)
   }
 
   setDisabledState (isDisabled: boolean) {
     this.disabled = isDisabled
+  }
+
+  getSelectedItem () {
+    return this.items.find(i => i.id === this.selectedId)
   }
 }

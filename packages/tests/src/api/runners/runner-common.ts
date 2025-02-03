@@ -41,7 +41,7 @@ describe('Test runner common actions', function () {
     await setAccessTokensToServers([ server ])
     await setDefaultVideoChannel([ server ])
 
-    await server.config.enableTranscoding({ hls: true, webVideo: true })
+    await server.config.enableTranscoding({ hls: true, webVideo: true, resolutions: 'max' })
     await server.config.enableRemoteTranscoding()
   })
 
@@ -395,6 +395,18 @@ describe('Test runner common actions', function () {
         jobUUID = webVideoJobs[0].uuid
       })
 
+      it('Should filter requested jobs', async function () {
+        {
+          const { availableJobs } = await server.runnerJobs.request({ runnerToken, jobTypes: [ 'vod-web-video-transcoding' ] })
+          expect(availableJobs).to.have.lengthOf(2)
+        }
+
+        {
+          const { availableJobs } = await server.runnerJobs.request({ runnerToken, jobTypes: [ 'vod-hls-transcoding' ] })
+          expect(availableJobs).to.have.lengthOf(0)
+        }
+      })
+
       it('Should have sorted available jobs by priority', async function () {
         const { availableJobs } = await server.runnerJobs.request({ runnerToken })
 
@@ -561,7 +573,7 @@ describe('Test runner common actions', function () {
         const { data } = await server.runnerJobs.list({ count: 50, sort: '-updatedAt' })
 
         const children = data.filter(j => j.parent?.uuid === failedJob.uuid)
-        expect(children).to.have.lengthOf(9)
+        expect(children).to.have.lengthOf(5)
 
         for (const child of children) {
           expect(child.parent.uuid).to.equal(failedJob.uuid)
@@ -599,7 +611,7 @@ describe('Test runner common actions', function () {
         {
           const { data } = await server.runnerJobs.list({ count: 10, sort: '-updatedAt' })
           const children = data.filter(j => j.parent?.uuid === jobUUID)
-          expect(children).to.have.lengthOf(9)
+          expect(children).to.have.lengthOf(5)
 
           for (const child of children) {
             expect(child.state.id).to.equal(RunnerJobState.PARENT_CANCELLED)

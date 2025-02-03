@@ -1,0 +1,37 @@
+@use '_variables' as *;
+@use '_mixins' as *;
+
+.help-tooltip-button {
+  my-global-icon {
+    width: 17px;
+    height: 17px;
+    line-height: 17px;
+    display: inline-block;
+    position: relative;
+    top: -1px;
+    color: pvar(--fg-400);
+  }
+}
+
+:host ::ng-deep {
+  .help-popover {
+    min-width: 200px;
+    max-width: 300px;
+
+    .popover-body {
+      padding: 10px;
+      font-size: 13px;
+      border-radius: 3px;
+
+      p {
+        margin-bottom: 0;
+      }
+
+      ul {
+        margin-bottom: 0;
+
+        @include padding-left(20px);
+      }
+    }
+  }
+}

@@ -2,7 +2,7 @@
 
 import { expect } from 'chai'
 import { wait } from '@peertube/peertube-core-utils'
-import { Video, VideoPrivacy } from '@peertube/peertube-models'
+import { Video, VideoCommentPolicy, VideoPrivacy } from '@peertube/peertube-models'
 import { checkVideoFilesWereRemoved, completeVideoCheck } from '@tests/shared/videos.js'
 import { testImageGeneratedByFFmpeg } from '@tests/shared/checks.js'
 import {
@@ -36,22 +36,22 @@ describe('Test a single server', function () {
         name: 'root',
         host: server.host
       },
-      isLocal: true,
       duration: 5,
       tags: [ 'tag1', 'tag2', 'tag3' ],
       privacy: VideoPrivacy.PUBLIC,
-      commentsEnabled: true,
+      commentsPolicy: VideoCommentPolicy.ENABLED,
       downloadEnabled: true,
       channel: {
         displayName: 'Main root channel',
         name: 'root_channel',
-        description: '',
-        isLocal: true
+        description: ''
       },
       fixture: 'video_short.webm',
       files: [
         {
           resolution: 720,
+          height: 720,
+          width: 1280,
           size: 218910
         }
       ]
@@ -69,22 +69,22 @@ describe('Test a single server', function () {
         name: 'root',
         host: server.host
       },
-      isLocal: true,
       tags: [ 'tagup1', 'tagup2' ],
       privacy: VideoPrivacy.PUBLIC,
       duration: 5,
-      commentsEnabled: false,
+      commentsPolicy: VideoCommentPolicy.DISABLED,
       downloadEnabled: false,
       channel: {
         name: 'root_channel',
         displayName: 'Main root channel',
-        description: '',
-        isLocal: true
+        description: ''
       },
       fixture: 'video_short3.webm',
       files: [
         {
           resolution: 720,
+          height: 720,
+          width: 1280,
           size: 292677
         }
       ]
@@ -345,7 +345,7 @@ describe('Test a single server', function () {
         language: 'ar',
         nsfw: false,
         description: 'my super description updated',
-        commentsEnabled: false,
+        commentsPolicy: VideoCommentPolicy.DISABLED,
         downloadEnabled: false,
         tags: [ 'tagup1', 'tagup2' ]
       }

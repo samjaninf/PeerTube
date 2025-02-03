@@ -19,6 +19,18 @@ function removeQueryParams (url: string) {
   return objUrl.toString()
 }
 
+function queryParamsToObject (entries: URLSearchParams) {
+  const result: { [ id: string ]: string | number | boolean } = {}
+
+  for (const [ key, value ] of entries) {
+    result[key] = value
+  }
+
+  return result
+}
+
+// ---------------------------------------------------------------------------
+
 function buildPlaylistLink (playlist: Pick<VideoPlaylist, 'shortUUID'>, base?: string) {
   return (base ?? window.location.origin) + buildPlaylistWatchPath(playlist)
 }
@@ -72,6 +84,8 @@ function decorateVideoLink (options: {
 
   peertubeLink?: boolean
   p2p?: boolean
+
+  api?: boolean
 }) {
   const { url } = options
 
@@ -101,6 +115,8 @@ function decorateVideoLink (options: {
   if (options.peertubeLink === false) params.set('peertubeLink', '0')
   if (options.p2p !== undefined) params.set('p2p', options.p2p ? '1' : '0')
 
+  if (options.api !== undefined) params.set('api', options.api ? '1' : '0')
+
   return buildUrl(url, params)
 }
 
@@ -123,6 +139,7 @@ function decoratePlaylistLink (options: {
 export {
   addQueryParams,
   removeQueryParams,
+  queryParamsToObject,
 
   buildPlaylistLink,
   buildVideoLink,

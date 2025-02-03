@@ -4,12 +4,12 @@ await registerOpentelemetryTracing()
 process.title = 'peertube'
 
 // ----------- Core checker -----------
-import { checkMissedConfig, checkFFmpeg, checkNodeVersion } from './server/initializers/checker-before-init.js'
+import { checkMissedConfig, checkFFmpeg, checkNodeVersion } from './core/initializers/checker-before-init.js'
 
 // Do not use barrels because we don't want to load all modules here (we need to initialize database first)
-import { CONFIG } from './server/initializers/config.js'
-import { API_VERSION, WEBSERVER, loadLanguages } from './server/initializers/constants.js'
-import { logger } from './server/helpers/logger.js'
+import { CONFIG } from './core/initializers/config.js'
+import { API_VERSION, WEBSERVER, loadLanguages } from './core/initializers/constants.js'
+import { logger } from './core/helpers/logger.js'
 
 const missed = checkMissedConfig()
 if (missed.length !== 0) {
@@ -30,7 +30,7 @@ try {
   process.exit(-1)
 }
 
-import { checkConfig, checkActivityPubUrls, checkFFmpegVersion } from './server/initializers/checker-after-init.js'
+import { checkConfig, checkActivityPubUrls, checkFFmpegVersion } from './core/initializers/checker-after-init.js'
 
 try {
   checkConfig()
@@ -42,10 +42,10 @@ try {
 // ----------- Database -----------
 
 // Initialize database and models
-import { initDatabaseModels, checkDatabaseConnectionOrDie } from './server/initializers/database.js'
+import { initDatabaseModels, checkDatabaseConnectionOrDie, sequelizeTypescript } from './core/initializers/database.js'
 checkDatabaseConnectionOrDie()
 
-import { migrate } from './server/initializers/migrator.js'
+import { migrate } from './core/initializers/migrator.js'
 migrate()
   .then(() => initDatabaseModels(false))
   .then(() => startApplication())
@@ -85,7 +85,7 @@ app.use((_req, res, next) => {
 })
 
 // Security middleware
-import { baseCSP } from './server/middlewares/csp.js'
+import { baseCSP } from './core/middlewares/csp.js'
 
 if (CONFIG.CSP.ENABLED) {
   app.use(baseCSP)
@@ -98,9 +98,9 @@ if (CONFIG.SECURITY.FRAMEGUARD.ENABLED) {
 }
 
 // ----------- PeerTube modules -----------
-import { installApplication } from './server/initializers/installer.js'
-import { Emailer } from './server/lib/emailer.js'
-import { JobQueue } from './server/lib/job-queue/index.js'
+import { installApplication } from './core/initializers/installer.js'
+import { Emailer } from './core/lib/emailer.js'
+import { JobQueue } from './core/lib/job-queue/index.js'
 import {
   activityPubRouter,
   apiRouter,
@@ -117,29 +117,29 @@ import {
   createWebsocketTrackerServer,
   sitemapRouter,
   downloadRouter
-} from './server/controllers/index.js'
-import { advertiseDoNotTrack } from './server/middlewares/dnt.js'
-import { apiFailMiddleware } from './server/middlewares/error.js'
-import { Redis } from './server/lib/redis.js'
-import { ActorFollowScheduler } from './server/lib/schedulers/actor-follow-scheduler.js'
-import { RemoveOldViewsScheduler } from './server/lib/schedulers/remove-old-views-scheduler.js'
-import { UpdateVideosScheduler } from './server/lib/schedulers/update-videos-scheduler.js'
-import { YoutubeDlUpdateScheduler } from './server/lib/schedulers/youtube-dl-update-scheduler.js'
-import { VideosRedundancyScheduler } from './server/lib/schedulers/videos-redundancy-scheduler.js'
-import { RemoveOldHistoryScheduler } from './server/lib/schedulers/remove-old-history-scheduler.js'
-import { AutoFollowIndexInstances } from './server/lib/schedulers/auto-follow-index-instances.js'
-import { RemoveDanglingResumableUploadsScheduler } from './server/lib/schedulers/remove-dangling-resumable-uploads-scheduler.js'
-import { VideoViewsBufferScheduler } from './server/lib/schedulers/video-views-buffer-scheduler.js'
-import { GeoIPUpdateScheduler } from './server/lib/schedulers/geo-ip-update-scheduler.js'
-import { RunnerJobWatchDogScheduler } from './server/lib/schedulers/runner-job-watch-dog-scheduler.js'
-import { isHTTPSignatureDigestValid } from './server/helpers/peertube-crypto.js'
-import { PeerTubeSocket } from './server/lib/peertube-socket.js'
-import { updateStreamingPlaylistsInfohashesIfNeeded } from './server/lib/hls.js'
-import { PluginsCheckScheduler } from './server/lib/schedulers/plugins-check-scheduler.js'
-import { PeerTubeVersionCheckScheduler } from './server/lib/schedulers/peertube-version-check-scheduler.js'
-import { Hooks } from './server/lib/plugins/hooks.js'
-import { PluginManager } from './server/lib/plugins/plugin-manager.js'
-import { LiveManager } from './server/lib/live/index.js'
+} from './core/controllers/index.js'
+import { advertiseDoNotTrack } from './core/middlewares/dnt.js'
+import { apiFailMiddleware } from './core/middlewares/error.js'
+import { Redis } from './core/lib/redis.js'
+import { ActorFollowScheduler } from './core/lib/schedulers/actor-follow-scheduler.js'
+import { RemoveOldViewsScheduler } from './core/lib/schedulers/remove-old-views-scheduler.js'
+import { UpdateVideosScheduler } from './core/lib/schedulers/update-videos-scheduler.js'
+import { YoutubeDlUpdateScheduler } from './core/lib/schedulers/youtube-dl-update-scheduler.js'
+import { VideosRedundancyScheduler } from './core/lib/schedulers/videos-redundancy-scheduler.js'
+import { RemoveOldHistoryScheduler } from './core/lib/schedulers/remove-old-history-scheduler.js'
+import { AutoFollowIndexInstances } from './core/lib/schedulers/auto-follow-index-instances.js'
+import { RemoveDanglingResumableUploadsScheduler } from './core/lib/schedulers/remove-dangling-resumable-uploads-scheduler.js'
+import { VideoViewsBufferScheduler } from './core/lib/schedulers/video-views-buffer-scheduler.js'
+import { GeoIPUpdateScheduler } from './core/lib/schedulers/geo-ip-update-scheduler.js'
+import { RunnerJobWatchDogScheduler } from './core/lib/schedulers/runner-job-watch-dog-scheduler.js'
+import { isHTTPSignatureDigestValid } from './core/helpers/peertube-crypto.js'
+import { PeerTubeSocket } from './core/lib/peertube-socket.js'
+import { updateStreamingPlaylistsInfohashesIfNeeded } from './core/lib/hls.js'
+import { PluginsCheckScheduler } from './core/lib/schedulers/plugins-check-scheduler.js'
+import { PeerTubeVersionCheckScheduler } from './core/lib/schedulers/peertube-version-check-scheduler.js'
+import { Hooks } from './core/lib/plugins/hooks.js'
+import { PluginManager } from './core/lib/plugins/plugin-manager.js'
+import { LiveManager } from './core/lib/live/index.js'
 import { HttpStatusCode } from '@peertube/peertube-models'
 import { ServerConfigManager } from '@server/lib/server-config-manager.js'
 import { VideoViewsManager } from '@server/lib/views/video-views-manager.js'
@@ -147,6 +147,7 @@ import { isTestOrDevInstance } from '@peertube/peertube-node-utils'
 import { OpenTelemetryMetrics } from '@server/lib/opentelemetry/metrics.js'
 import { ApplicationModel } from '@server/models/application/application.js'
 import { VideoChannelSyncLatestScheduler } from '@server/lib/schedulers/video-channel-sync-latest-scheduler.js'
+import { RemoveExpiredUserExportsScheduler } from '@server/lib/schedulers/remove-expired-user-exports-scheduler.js'
 
 // ----------- Command line -----------
 
@@ -167,27 +168,31 @@ if (isTestOrDevInstance()) {
   }))
 }
 
-// For the logger
-token('remote-addr', (req: express.Request) => {
-  if (CONFIG.LOG.ANONYMIZE_IP === true || req.get('DNT') === '1') {
-    return anonymize(req.ip, 16, 16)
-  }
+// HTTP logging
+if (CONFIG.LOG.LOG_HTTP_REQUESTS) {
+  token('remote-addr', (req: express.Request) => {
+    if (CONFIG.LOG.ANONYMIZE_IP === true || req.get('DNT') === '1') {
+      return anonymize(req.ip, 16, 16)
+    }
 
-  return req.ip
-})
-token('user-agent', (req: express.Request) => {
-  if (req.get('DNT') === '1') {
-    return parse(req.get('user-agent')).family
-  }
+    return req.ip
+  })
 
-  return req.get('user-agent')
-})
-app.use(morgan('combined', {
-  stream: {
-    write: (str: string) => logger.info(str.trim(), { tags: [ 'http' ] })
-  },
-  skip: req => CONFIG.LOG.LOG_PING_REQUESTS === false && req.originalUrl === '/api/v1/ping'
-}))
+  token('user-agent', (req: express.Request) => {
+    if (req.get('DNT') === '1') {
+      return parse(req.get('user-agent')).family
+    }
+
+    return req.get('user-agent')
+  })
+
+  app.use(morgan('combined', {
+    stream: {
+      write: (str: string) => logger.info(str.trim(), { tags: [ 'http' ] })
+    },
+    skip: req => CONFIG.LOG.LOG_PING_REQUESTS === false && req.originalUrl === '/api/v1/ping'
+  }))
+}
 
 // Add .fail() helper to response
 app.use(apiFailMiddleware)
@@ -206,11 +211,12 @@ app.use(express.json({
         message: 'Invalid digest'
       })
     }
+
+    if (req.originalUrl.startsWith('/plugins/')) {
+      req.rawBody = buf
+    }
   }
 }))
-
-// Cookies
-app.use(cookieParser())
 
 // W3C DNT Tracking Status
 app.use(advertiseDoNotTrack)
@@ -226,10 +232,10 @@ app.use('/api/' + API_VERSION, apiRouter)
 // Services (oembed...)
 app.use('/services', servicesRouter)
 
-// Plugins & themes
-app.use('/', pluginsRouter)
+if (CONFIG.FEDERATION.ENABLED) {
+  app.use('/', activityPubRouter)
+}
 
-app.use('/', activityPubRouter)
 app.use('/', feedsRouter)
 app.use('/', trackerRouter)
 app.use('/', sitemapRouter)
@@ -241,6 +247,12 @@ app.use('/', miscRouter)
 app.use('/', downloadRouter)
 app.use('/', lazyStaticRouter)
 app.use('/', objectStorageProxyRouter)
+
+// Cookies for plugins and HTML
+app.use(cookieParser())
+
+// Plugins & themes
+app.use('/', pluginsRouter)
 
 // Client files, last valid routes!
 const cliOptions = cli.opts<{ client: boolean, plugins: boolean }>()
@@ -322,6 +334,7 @@ async function startApplication () {
   VideoViewsBufferScheduler.Instance.enable()
   GeoIPUpdateScheduler.Instance.enable()
   RunnerJobWatchDogScheduler.Instance.enable()
+  RemoveExpiredUserExportsScheduler.Instance.enable()
 
   OpenTelemetryMetrics.Instance.registerMetrics({ trackerServer })
 
@@ -368,6 +381,9 @@ async function startApplication () {
   })
 
   process.on('exit', () => {
+    sequelizeTypescript.close()
+      .catch(err => logger.error('Cannot close database connection.', { err }))
+
     JobQueue.Instance.terminate()
       .catch(err => logger.error('Cannot terminate job queue.', { err }))
   })

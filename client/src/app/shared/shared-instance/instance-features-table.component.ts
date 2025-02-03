@@ -1,16 +1,27 @@
-import { Component, OnInit } from '@angular/core'
+import { NgFor, NgIf } from '@angular/common'
+import { Component, Input, OnInit } from '@angular/core'
 import { ServerService } from '@app/core'
 import { formatICU } from '@app/helpers'
-import { ServerConfig } from '@peertube/peertube-models'
+import { ServerConfig, ServerStats } from '@peertube/peertube-models'
+import { of } from 'rxjs'
+import { HelpComponent } from '../shared-main/buttons/help.component'
+import { BytesPipe } from '../shared-main/common/bytes.pipe'
+import { PeerTubeTemplateDirective } from '../shared-main/common/peertube-template.directive'
+import { DaysDurationFormatterPipe } from '../shared-main/date/days-duration-formatter.pipe'
+import { FeatureBooleanComponent } from './feature-boolean.component'
 
 @Component({
   selector: 'my-instance-features-table',
   templateUrl: './instance-features-table.component.html',
-  styleUrls: [ './instance-features-table.component.scss' ]
+  styleUrls: [ './instance-features-table.component.scss' ],
+  standalone: true,
+  imports: [ NgIf, FeatureBooleanComponent, HelpComponent, PeerTubeTemplateDirective, NgFor, BytesPipe ]
 })
 export class InstanceFeaturesTableComponent implements OnInit {
+  @Input() serverConfig: ServerConfig
+  @Input() serverStats: ServerStats
+
   quotaHelpIndication = ''
-  serverConfig: ServerConfig
 
   constructor (
     private serverService: ServerService
@@ -39,11 +50,19 @@ export class InstanceFeaturesTableComponent implements OnInit {
   }
 
   ngOnInit () {
-    this.serverService.getConfig()
-        .subscribe(config => {
-          this.serverConfig = config
-          this.buildQuotaHelpIndication()
-        })
+    const serverConfigObs = this.serverConfig
+      ? of(this.serverConfig)
+      : this.serverService.getConfig()
+
+    serverConfigObs.subscribe(config => {
+      this.serverConfig = config
+
+      this.buildQuotaHelpIndication()
+    })
+
+    if (!this.serverStats) {
+      this.serverService.getServerStats().subscribe(stats => this.serverStats = stats)
+    }
   }
 
   buildNSFWLabel () {
@@ -58,7 +77,17 @@ export class InstanceFeaturesTableComponent implements OnInit {
     const config = this.serverConfig.signup
 
     if (config.allowed !== true) return $localize`Disabled`
-    if (config.requiresApproval === true) return $localize`Requires approval by moderators`
+
+    if (config.requiresApproval === true) {
+      const responseTimeMS = this.serverStats?.averageRegistrationRequestResponseTimeMs
+
+      if (!responseTimeMS) {
+        return $localize`Requires approval by moderators`
+      }
+
+      const responseTime = new DaysDurationFormatterPipe().transform(responseTimeMS)
+      return $localize`Requires approval by moderators (~ ${responseTime})`
+    }
 
     return $localize`Enabled`
   }

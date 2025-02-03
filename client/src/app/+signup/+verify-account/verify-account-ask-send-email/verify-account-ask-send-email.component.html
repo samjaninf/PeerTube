@@ -1,7 +1,7 @@
 <div class="margin-content">
   <h1 i18n class="title-page">Request email for account verification</h1>
 
-  <form *ngIf="requiresEmailVerification; else emailVerificationNotRequired" role="form" (ngSubmit)="askSendVerifyEmail()" [formGroup]="form">
+  <form *ngIf="requiresEmailVerification; else emailVerificationNotRequired" (ngSubmit)="askSendVerifyEmail()" [formGroup]="form">
     <div class="form-group">
       <label i18n for="verify-email-email">Email</label>
 
@@ -10,10 +10,10 @@
         formControlName="verify-email-email" class="form-control" [ngClass]="{ 'input-error': formErrors['verify-email-email'] }"
       >
 
-      <div *ngIf="formErrors['verify-email-email']" class="form-error">{{ formErrors['verify-email-email'] }}</div>
+      <div *ngIf="formErrors['verify-email-email']" class="form-error" role="alert">{{ formErrors['verify-email-email'] }}</div>
     </div>
 
-    <input class="peertube-button orange-button" type="submit" i18n-value value="Send verification email" [disabled]="!form.valid">
+    <input class="peertube-button primary-button" type="submit" i18n-value value="Send verification email" [disabled]="!form.valid">
   </form>
 
   <ng-template #emailVerificationNotRequired>

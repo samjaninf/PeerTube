@@ -1,20 +1,27 @@
 /* eslint-disable @typescript-eslint/no-unused-expressions,@typescript-eslint/require-await */
 
-import { expect } from 'chai'
 import { omit } from '@peertube/peertube-core-utils'
-import { HttpStatusCode, LiveVideoLatencyMode, VideoCreateResult, VideoPrivacy } from '@peertube/peertube-models'
+import {
+  HttpStatusCode,
+  LiveVideoCreate,
+  LiveVideoLatencyMode,
+  VideoCommentPolicy,
+  VideoCreateResult,
+  VideoPrivacy
+} from '@peertube/peertube-models'
 import { buildAbsoluteFixturePath } from '@peertube/peertube-node-utils'
 import {
+  LiveCommand,
+  PeerTubeServer,
   cleanupTests,
   createSingleServer,
-  LiveCommand,
   makePostBodyRequest,
   makeUploadRequest,
-  PeerTubeServer,
   sendRTMPStream,
   setAccessTokensToServers,
   stopFfmpeg
 } from '@peertube/peertube-server-commands'
+import { expect } from 'chai'
 
 describe('Test video lives API validator', function () {
   const path = '/api/v1/videos/live'
@@ -34,7 +41,8 @@ describe('Test video lives API validator', function () {
 
     await setAccessTokensToServers([ server ])
 
-    await server.config.updateCustomSubConfig({
+    await server.config.enableMinimumTranscoding()
+    await server.config.updateExistingConfig({
       newConfig: {
         live: {
           enabled: true,
@@ -66,7 +74,7 @@ describe('Test video lives API validator', function () {
   })
 
   describe('When creating a live', function () {
-    let baseCorrectParams
+    let baseCorrectParams: LiveVideoCreate
 
     before(function () {
       baseCorrectParams = {
@@ -75,7 +83,7 @@ describe('Test video lives API validator', function () {
         licence: 1,
         language: 'pt',
         nsfw: false,
-        commentsEnabled: true,
+        commentsPolicy: VideoCommentPolicy.ENABLED,
         downloadEnabled: true,
         waitTranscoding: true,
         description: 'my super description',
@@ -85,7 +93,7 @@ describe('Test video lives API validator', function () {
         channelId,
         saveReplay: false,
         replaySettings: undefined,
-        permanentLive: false,
+        permanentLive: true,
         latencyMode: LiveVideoLatencyMode.DEFAULT
       }
     })
@@ -115,6 +123,12 @@ describe('Test video lives API validator', function () {
 
     it('Should fail with a bad language', async function () {
       const fields = { ...baseCorrectParams, language: 'a'.repeat(15) }
+
+      await makePostBodyRequest({ url: server.url, path, token: server.accessToken, fields })
+    })
+
+    it('Should fail with bad comments policy', async function () {
+      const fields = { ...baseCorrectParams, commentsPolicy: 42 }
 
       await makePostBodyRequest({ url: server.url, path, token: server.accessToken, fields })
     })
@@ -246,7 +260,7 @@ describe('Test video lives API validator', function () {
     })
 
     it('Should forbid if live is disabled', async function () {
-      await server.config.updateCustomSubConfig({
+      await server.config.updateExistingConfig({
         newConfig: {
           live: {
             enabled: false
@@ -266,14 +280,7 @@ describe('Test video lives API validator', function () {
     it('Should forbid to save replay if not enabled by the admin', async function () {
       const fields = { ...baseCorrectParams, saveReplay: true, replaySettings: { privacy: VideoPrivacy.PUBLIC } }
 
-      await server.config.updateCustomSubConfig({
-        newConfig: {
-          live: {
-            enabled: true,
-            allowReplay: false
-          }
-        }
-      })
+      await server.config.enableLive({ allowReplay: false, transcoding: false })
 
       await makePostBodyRequest({
         url: server.url,
@@ -287,14 +294,7 @@ describe('Test video lives API validator', function () {
     it('Should allow to save replay if enabled by the admin', async function () {
       const fields = { ...baseCorrectParams, saveReplay: true, replaySettings: { privacy: VideoPrivacy.PUBLIC } }
 
-      await server.config.updateCustomSubConfig({
-        newConfig: {
-          live: {
-            enabled: true,
-            allowReplay: true
-          }
-        }
-      })
+      await server.config.enableLive({ allowReplay: true, transcoding: false })
 
       await makePostBodyRequest({
         url: server.url,
@@ -306,7 +306,7 @@ describe('Test video lives API validator', function () {
     })
 
     it('Should not allow live if max instance lives is reached', async function () {
-      await server.config.updateCustomSubConfig({
+      await server.config.updateExistingConfig({
         newConfig: {
           live: {
             enabled: true,
@@ -325,7 +325,7 @@ describe('Test video lives API validator', function () {
     })
 
     it('Should not allow live if max user lives is reached', async function () {
-      await server.config.updateCustomSubConfig({
+      await server.config.updateExistingConfig({
         newConfig: {
           live: {
             enabled: true,
@@ -479,14 +479,7 @@ describe('Test video lives API validator', function () {
     })
 
     it('Should fail with save replay enabled but without replay settings', async function () {
-      await server.config.updateCustomSubConfig({
-        newConfig: {
-          live: {
-            enabled: true,
-            allowReplay: true
-          }
-        }
-      })
+      await server.config.enableLive({ allowReplay: true, transcoding: false })
 
       const fields = { saveReplay: true }
 
@@ -521,19 +514,12 @@ describe('Test video lives API validator', function () {
     })
 
     it('Should fail to update replay status if replay is not allowed on the instance', async function () {
-      await server.config.updateCustomSubConfig({
-        newConfig: {
-          live: {
-            enabled: true,
-            allowReplay: false
-          }
-        }
-      })
+      await server.config.enableLive({ allowReplay: false, transcoding: false })
 
       await command.update({ videoId: video.id, fields: { saveReplay: true }, expectedStatus: HttpStatusCode.FORBIDDEN_403 })
     })
 
-    it('Should fail to update a live if it has already started', async function () {
+    it('Should succeed to live attributes if it has already started', async function () {
       this.timeout(40000)
 
       const live = await command.get({ videoId: video.id })
@@ -541,7 +527,7 @@ describe('Test video lives API validator', function () {
       const ffmpegCommand = sendRTMPStream({ rtmpBaseUrl: live.rtmpUrl, streamKey: live.streamKey })
 
       await command.waitUntilPublished({ videoId: video.id })
-      await command.update({ videoId: video.id, fields: {}, expectedStatus: HttpStatusCode.BAD_REQUEST_400 })
+      await command.update({ videoId: video.id, fields: { permanentLive: false }, expectedStatus: HttpStatusCode.BAD_REQUEST_400 })
 
       await stopFfmpeg(ffmpegCommand)
     })

@@ -3,13 +3,19 @@
 import { expect } from 'chai'
 import snakeCase from 'lodash-es/snakeCase.js'
 import validator from 'validator'
-import { getAverageTheoreticalBitrate, getMaxTheoreticalBitrate, parseChapters } from '@peertube/peertube-core-utils'
+import {
+  buildAspectRatio,
+  getAverageTheoreticalBitrate,
+  getMaxTheoreticalBitrate,
+  parseChapters,
+  timeToInt
+} from '@peertube/peertube-core-utils'
 import { VideoResolution } from '@peertube/peertube-models'
-import { objectConverter, parseBytes, parseDurationToMs, parseSemVersion } from '@peertube/peertube-server/server/helpers/core-utils.js'
+import { objectConverter, parseBytes, parseDurationToMs, parseSemVersion } from '@peertube/peertube-server/core/helpers/core-utils.js'
 
 describe('Parse Bytes', function () {
 
-  it('Should pass on valid value', async function () {
+  it('Should pass on valid value', function () {
     // just return it
     expect(parseBytes(-1024)).to.equal(-1024)
     expect(parseBytes(1024)).to.equal(1024)
@@ -43,14 +49,14 @@ describe('Parse Bytes', function () {
     expect(parseBytes('1024TB 1024GB 1024MB')).to.equal(1127000492212224)
   })
 
-  it('Should be invalid when given invalid value', async function () {
+  it('Should be invalid when given invalid value', function () {
     expect(parseBytes('6GB 1GB')).to.equal(6)
   })
 })
 
 describe('Parse duration', function () {
 
-  it('Should pass when given valid value', async function () {
+  it('Should pass when given valid value', function () {
     expect(parseDurationToMs(35)).to.equal(35)
     expect(parseDurationToMs(-35)).to.equal(-35)
     expect(parseDurationToMs('35 seconds')).to.equal(35 * 1000)
@@ -59,14 +65,36 @@ describe('Parse duration', function () {
     expect(parseDurationToMs('35 hours')).to.equal(3600 * 35 * 1000)
   })
 
-  it('Should be invalid when given invalid value', async function () {
+  it('Should be invalid when given invalid value', function () {
     expect(parseBytes('35m 5s')).to.equal(35)
+  })
+})
+
+describe('Time to int', function () {
+
+  it('Should correctly parse time to int', function () {
+    expect(timeToInt(undefined)).to.equal(0)
+    expect(timeToInt('')).to.equal(0)
+
+    expect(timeToInt('1h02')).to.equal(3602)
+
+    expect(timeToInt('1:02')).to.equal(62)
+    expect(timeToInt('01:2')).to.equal(62)
+
+    expect(timeToInt('02h02m03s')).to.equal(7323)
+    expect(timeToInt('2:02:3')).to.equal(7323)
+
+    expect(timeToInt('5h10m')).to.equal(5 * 3600 + 60 * 10)
+    expect(timeToInt('5h10m0s')).to.equal(5 * 3600 + 60 * 10)
+    expect(timeToInt('5h10m0')).to.equal(5 * 3600 + 60 * 10)
+
+    expect(timeToInt(3500)).to.equal(3500)
   })
 })
 
 describe('Object', function () {
 
-  it('Should convert an object', async function () {
+  it('Should convert an object', function () {
     function keyConverter (k: string) {
       return snakeCase(k)
     }
@@ -147,6 +175,18 @@ describe('Bitrate', function () {
       expect(getAverageTheoreticalBitrate(test)).to.be.above(test.min * 1000).and.below(test.max * 1000)
     }
   })
+
+  describe('Ratio', function () {
+
+    it('Should have the correct aspect ratio in landscape', function () {
+      expect(buildAspectRatio({ width: 1920, height: 1080 })).to.equal(1.7778)
+      expect(buildAspectRatio({ width: 1000, height: 1000 })).to.equal(1)
+    })
+
+    it('Should have the correct aspect ratio in portrait', function () {
+      expect(buildAspectRatio({ width: 1080, height: 1920 })).to.equal(0.5625)
+    })
+  })
 })
 
 describe('Parse semantic version string', function () {
@@ -203,25 +243,38 @@ describe('Parse semantic version string', function () {
 describe('Extract chapters', function () {
 
   it('Should not extract chapters', function () {
-    expect(parseChapters('my super description\nno?')).to.deep.equal([])
-    expect(parseChapters('m00:00 super description\nno?')).to.deep.equal([])
-    expect(parseChapters('00:00super description\nno?')).to.deep.equal([])
-    expect(parseChapters('my super description\n'.repeat(10) + ' * list1\n * list 2\n * list 3')).to.deep.equal([])
+    expect(parseChapters('my super description\nno?', 100)).to.deep.equal([])
+    expect(parseChapters('m00:00 super description\nno?', 100)).to.deep.equal([])
+    expect(parseChapters('00:00super description\nno?', 100)).to.deep.equal([])
+    expect(parseChapters('my super description\n'.repeat(10) + ' * list1\n * list 2\n * list 3', 100)).to.deep.equal([])
+    expect(parseChapters('3 Hello coucou', 100)).to.deep.equal([])
+    expect(parseChapters('00:00 coucou', 100)).to.deep.equal([])
   })
 
   it('Should extract chapters', function () {
-    expect(parseChapters('00:00 coucou')).to.deep.equal([ { timecode: 0, title: 'coucou' } ])
-    expect(parseChapters('my super description\n\n00:01:30 chapter 1\n00:01:35 chapter 2')).to.deep.equal([
+    expect(parseChapters('00:00 coucou\n00:05 hello', 100)).to.deep.equal([
+      { timecode: 0, title: 'coucou' },
+      { timecode: 5, title: 'hello' }
+    ])
+
+    expect(parseChapters('my super description\n\n00:01:30 chapter 1\n00:01:35 chapter 2', 100)).to.deep.equal([
       { timecode: 90, title: 'chapter 1' },
       { timecode: 95, title: 'chapter 2' }
     ])
-    expect(parseChapters('hi\n\n00:01:30 chapter 1\n00:01:35 chapter 2\nhi')).to.deep.equal([
+    expect(parseChapters('hi\n\n00:01:30 chapter 1\n00:01:35 chapter 2\nhi', 100)).to.deep.equal([
       { timecode: 90, title: 'chapter 1' },
       { timecode: 95, title: 'chapter 2' }
     ])
-    expect(parseChapters('hi\n\n00:01:30 chapter 1\n00:01:35 chapter 2\nhi\n00:01:40 chapter 3')).to.deep.equal([
+    expect(parseChapters('hi\n\n00:01:30 chapter 1\n00:01:35 chapter 2\nhi\n00:01:40 chapter 3', 100)).to.deep.equal([
       { timecode: 90, title: 'chapter 1' },
       { timecode: 95, title: 'chapter 2' }
+    ])
+  })
+
+  it('Should respect the max length option', function () {
+    expect(parseChapters('my super description\n\n00:01:30 chapter 1\n00:01:35 chapter 2', 3)).to.deep.equal([
+      { timecode: 90, title: 'cha' },
+      { timecode: 95, title: 'cha' }
     ])
   })
 })

@@ -1,6 +1,9 @@
-import { Location } from '@angular/common'
-import { Component, ElementRef, ViewChild } from '@angular/core'
+import { CommonModule, Location } from '@angular/common'
+import { Component, ElementRef, EventEmitter, OnInit, Output, ViewChild } from '@angular/core'
+import { FormsModule } from '@angular/forms'
 import { Notifier, User, UserService } from '@app/core'
+import { PeertubeCheckboxComponent } from '@app/shared/shared-forms/peertube-checkbox.component'
+import { GlobalIconComponent } from '@app/shared/shared-icons/global-icon.component'
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap'
 import { About, ServerConfig } from '@peertube/peertube-models'
 import { logger } from '@root-helpers/logger'
@@ -9,15 +12,19 @@ import { peertubeLocalStorage } from '@root-helpers/peertube-web-storage'
 @Component({
   selector: 'my-instance-config-warning-modal',
   templateUrl: './instance-config-warning-modal.component.html',
-  styleUrls: [ './instance-config-warning-modal.component.scss' ]
+  styleUrls: [ './instance-config-warning-modal.component.scss' ],
+  standalone: true,
+  imports: [ CommonModule, FormsModule, GlobalIconComponent, PeertubeCheckboxComponent ]
 })
-export class InstanceConfigWarningModalComponent {
+export class InstanceConfigWarningModalComponent implements OnInit {
   @ViewChild('modal', { static: true }) modal: ElementRef
+
+  @Output() created = new EventEmitter<void>()
 
   stopDisplayModal = false
   about: About
 
-  private LOCAL_STORAGE_KEYS = {
+  private LS_KEYS = {
     NO_INSTANCE_CONFIG_WARNING_MODAL: 'no_instance_config_warning_modal'
   }
 
@@ -28,9 +35,14 @@ export class InstanceConfigWarningModalComponent {
     private notifier: Notifier
   ) { }
 
+  ngOnInit (): void {
+    this.created.emit()
+  }
+
   shouldOpenByUser (user: User) {
+    if (this.modalService.hasOpenModals()) return false
     if (user.noInstanceConfigWarningModal === true) return false
-    if (peertubeLocalStorage.getItem(this.LOCAL_STORAGE_KEYS.NO_INSTANCE_CONFIG_WARNING_MODAL) === 'true') return false
+    if (peertubeLocalStorage.getItem(this.LS_KEYS.NO_INSTANCE_CONFIG_WARNING_MODAL) === 'true') return false
 
     return true
   }
@@ -45,7 +57,7 @@ export class InstanceConfigWarningModalComponent {
   }
 
   show (about: About) {
-    if (this.location.path().startsWith('/admin/config/edit-custom')) return
+    if (this.location.path().startsWith('/admin/settings/config/edit-custom')) return
 
     this.about = about
 
@@ -61,7 +73,7 @@ export class InstanceConfigWarningModalComponent {
   }
 
   private doNotOpenAgain () {
-    peertubeLocalStorage.setItem(this.LOCAL_STORAGE_KEYS.NO_INSTANCE_CONFIG_WARNING_MODAL, 'true')
+    peertubeLocalStorage.setItem(this.LS_KEYS.NO_INSTANCE_CONFIG_WARNING_MODAL, 'true')
 
     this.userService.updateMyProfile({ noInstanceConfigWarningModal: true })
         .subscribe({

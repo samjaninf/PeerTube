@@ -1,5 +1,7 @@
+import { NgClass, NgFor, NgIf, NgTemplateOutlet } from '@angular/common'
 import { Component, OnInit } from '@angular/core'
-import { Router } from '@angular/router'
+import { FormsModule, ReactiveFormsModule } from '@angular/forms'
+import { Router, RouterLink } from '@angular/router'
 import { ConfigService } from '@app/+admin/config/shared/config.service'
 import { AuthService, Notifier, ScreenService, ServerService } from '@app/core'
 import {
@@ -12,15 +14,45 @@ import {
   USER_VIDEO_QUOTA_DAILY_VALIDATOR,
   USER_VIDEO_QUOTA_VALIDATOR
 } from '@app/shared/form-validators/user-validators'
-import { FormReactiveService } from '@app/shared/shared-forms'
-import { UserAdminService } from '@app/shared/shared-users'
+import { FormReactiveService } from '@app/shared/shared-forms/form-reactive.service'
+import { AlertComponent } from '@app/shared/shared-main/common/alert.component'
+import { UserAdminService } from '@app/shared/shared-users/user-admin.service'
 import { UserCreate, UserRole } from '@peertube/peertube-models'
+import { ActorAvatarEditComponent } from '../../../../shared/shared-actor-image-edit/actor-avatar-edit.component'
+import { InputTextComponent } from '../../../../shared/shared-forms/input-text.component'
+import { PeertubeCheckboxComponent } from '../../../../shared/shared-forms/peertube-checkbox.component'
+import { SelectCustomValueComponent } from '../../../../shared/shared-forms/select/select-custom-value.component'
+import { HelpComponent } from '../../../../shared/shared-main/buttons/help.component'
+import { BytesPipe } from '../../../../shared/shared-main/common/bytes.pipe'
+import { PeerTubeTemplateDirective } from '../../../../shared/shared-main/common/peertube-template.directive'
+import { UserRealQuotaInfoComponent } from '../../../shared/user-real-quota-info.component'
 import { UserEdit } from './user-edit'
+import { UserPasswordComponent } from './user-password.component'
 
 @Component({
   selector: 'my-user-create',
   templateUrl: './user-edit.component.html',
-  styleUrls: [ './user-edit.component.scss' ]
+  styleUrls: [ './user-edit.component.scss' ],
+  standalone: true,
+  imports: [
+    RouterLink,
+    NgIf,
+    NgTemplateOutlet,
+    ActorAvatarEditComponent,
+    FormsModule,
+    ReactiveFormsModule,
+    NgClass,
+    HelpComponent,
+    PeerTubeTemplateDirective,
+    InputTextComponent,
+    NgFor,
+    SelectCustomValueComponent,
+    UserRealQuotaInfoComponent,
+    PeertubeCheckboxComponent,
+    UserPasswordComponent,
+    BytesPipe,
+    AlertComponent
+  ]
 })
 export class UserCreateComponent extends UserEdit implements OnInit {
   error: string
@@ -76,7 +108,7 @@ export class UserCreateComponent extends UserEdit implements OnInit {
       .subscribe({
         next: () => {
           this.notifier.success($localize`User ${userCreate.username} created.`)
-          this.router.navigate([ '/admin/users/list' ])
+          this.router.navigate([ '/admin/overview/users/list' ])
         },
 
         error: err => {

@@ -56,7 +56,7 @@ export class MyAccountPage {
   async removeVideo (name: string) {
     const container = await this.getVideoElement(name)
 
-    await container.$('.dropdown-toggle').click()
+    await container.$('my-action-dropdown .dropdown-toggle').click()
 
     const deleteItem = () => {
       return $$('.dropdown-menu .dropdown-item').find<WebdriverIO.Element>(async v => {
@@ -77,7 +77,7 @@ export class MyAccountPage {
 
   async countVideos (names: string[]) {
     const elements = await $$('.video').filter(async e => {
-      const t = await e.$('.video-miniature-name').getText()
+      const t = await e.$('.video-name').getText()
 
       return names.some(n => t.includes(n))
     })
@@ -120,15 +120,14 @@ export class MyAccountPage {
   async updatePlaylistPrivacy (playlistUUID: string, privacy: 'Public' | 'Private' | 'Unlisted') {
     go('/my-library/video-playlists/update/' + playlistUUID)
 
-    await browser.waitUntil(async () => {
-      return (await $('form .video-playlist-title').getText() === 'PLAYLIST')
-    })
+    await $('a[href*="/my-library/video-playlists/update/"]').waitForDisplayed()
 
     await selectCustomSelect('videoChannelId', 'Main root channel')
     await selectCustomSelect('privacy', privacy)
 
     const submit = await $('form input[type=submit]')
-    submit.waitForClickable()
+    await submit.waitForClickable()
+    await submit.scrollIntoView()
     await submit.click()
 
     return browser.waitUntil(async () => {
@@ -141,7 +140,7 @@ export class MyAccountPage {
   private async getVideoElement (name: string) {
     const video = async () => {
       const videos = await $$('.video').filter(async e => {
-        const t = await e.$('.video-miniature-name').getText()
+        const t = await e.$('.video-name').getText()
 
         return t.includes(name)
       })

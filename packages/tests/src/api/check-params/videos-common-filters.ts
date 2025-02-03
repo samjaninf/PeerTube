@@ -48,7 +48,8 @@ describe('Test video filters validators', function () {
     const validIncludes = [
       VideoInclude.NONE,
       VideoInclude.BLOCKED_OWNER,
-      VideoInclude.NOT_PUBLISHED_STATE | VideoInclude.BLACKLISTED
+      VideoInclude.NOT_PUBLISHED_STATE | VideoInclude.BLACKLISTED,
+      VideoInclude.SOURCE
     ]
 
     async function testEndpoints (options: {
@@ -56,9 +57,11 @@ describe('Test video filters validators', function () {
       isLocal?: boolean
       include?: VideoIncludeType
       privacyOneOf?: VideoPrivacyType[]
+      autoTagOneOf?: string[]
       expectedStatus: HttpStatusCodeType
       excludeAlreadyWatched?: boolean
       unauthenticatedUser?: boolean
+      filter?: string
     }) {
       const paths = [
         '/api/v1/video-channels/root_channel/videos',
@@ -79,13 +82,19 @@ describe('Test video filters validators', function () {
           query: {
             isLocal: options.isLocal,
             privacyOneOf: options.privacyOneOf,
+            autoTagOneOf: options.autoTagOneOf,
             include: options.include,
-            excludeAlreadyWatched: options.excludeAlreadyWatched
+            excludeAlreadyWatched: options.excludeAlreadyWatched,
+            filter: options.filter
           },
           expectedStatus: options.expectedStatus
         })
       }
     }
+
+    it('Should fail with the old filter query param', async function () {
+      await testEndpoints({ filter: 'all-local', expectedStatus: HttpStatusCode.BAD_REQUEST_400 })
+    })
 
     it('Should fail with a bad privacyOneOf', async function () {
       await testEndpoints({ privacyOneOf: [ 'toto' ] as any, expectedStatus: HttpStatusCode.BAD_REQUEST_400 })
@@ -100,6 +109,22 @@ describe('Test video filters validators', function () {
         privacyOneOf: [ VideoPrivacy.INTERNAL ],
         token: userAccessToken,
         expectedStatus: HttpStatusCode.UNAUTHORIZED_401
+      })
+    })
+
+    it('Should fail to use autoTagOneOf with a simple user', async function () {
+      await testEndpoints({
+        autoTagOneOf: [ 'test' ],
+        token: userAccessToken,
+        expectedStatus: HttpStatusCode.UNAUTHORIZED_401
+      })
+    })
+
+    it('Should succeed to use autoTagOneOf with a moderator', async function () {
+      await testEndpoints({
+        autoTagOneOf: [ 'test' ],
+        token: moderatorAccessToken,
+        expectedStatus: HttpStatusCode.OK_200
       })
     })
 

@@ -1,14 +1,35 @@
-import { SortMeta } from 'primeng/api'
 import { Component, OnInit } from '@angular/core'
+import { RouterLink } from '@angular/router'
 import { ConfirmService, Notifier, RestPagination, RestTable } from '@app/core'
-import { DropdownAction } from '@app/shared/shared-main'
+import { PTDatePipe } from '@app/shared/shared-main/common/date.pipe'
+import { NgbTooltip } from '@ng-bootstrap/ng-bootstrap'
 import { RunnerRegistrationToken } from '@peertube/peertube-models'
+import { SharedModule, SortMeta } from 'primeng/api'
+import { TableModule } from 'primeng/table'
+import { GlobalIconComponent } from '../../../../shared/shared-icons/global-icon.component'
+import { ActionDropdownComponent, DropdownAction } from '../../../../shared/shared-main/buttons/action-dropdown.component'
+import { ButtonComponent } from '../../../../shared/shared-main/buttons/button.component'
+import { CopyButtonComponent } from '../../../../shared/shared-main/buttons/copy-button.component'
+import { AutoColspanDirective } from '../../../../shared/shared-main/common/auto-colspan.directive'
 import { RunnerService } from '../runner.service'
 
 @Component({
   selector: 'my-runner-registration-token-list',
   styleUrls: [ './runner-registration-token-list.component.scss' ],
-  templateUrl: './runner-registration-token-list.component.html'
+  templateUrl: './runner-registration-token-list.component.html',
+  standalone: true,
+  imports: [
+    GlobalIconComponent,
+    RouterLink,
+    TableModule,
+    SharedModule,
+    NgbTooltip,
+    ButtonComponent,
+    ActionDropdownComponent,
+    CopyButtonComponent,
+    AutoColspanDirective,
+    PTDatePipe
+  ]
 })
 export class RunnerRegistrationTokenListComponent extends RestTable <RunnerRegistrationToken> implements OnInit {
   registrationTokens: RunnerRegistrationToken[] = []

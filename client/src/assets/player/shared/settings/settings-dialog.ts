@@ -3,6 +3,7 @@ import videojs from 'video.js'
 const Component = videojs.getComponent('Component')
 
 class SettingsDialog extends Component {
+
   constructor (player: videojs.Player) {
     super(player)
 
@@ -20,7 +21,6 @@ class SettingsDialog extends Component {
 
     return super.createEl('div', {
       className: 'vjs-settings-dialog vjs-modal-overlay',
-      innerHTML: '',
       tabIndex: -1
     }, {
       'role': 'dialog',

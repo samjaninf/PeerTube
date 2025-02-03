@@ -1,48 +1,76 @@
 @use '_variables' as *;
 @use '_mixins' as *;
 
-.columns {
-  display: flex;
+my-timestamp-input {
+  display: block;
+  width: 100px;
+}
 
-  .information {
-    width: 100%;
-    margin-left: 50px;
+.grid-container {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto 1fr;
 
-    > div {
-      margin-bottom: 30px;
-    }
+  @include rfs(3rem, column-gap);
+  @include rfs(2rem, row-gap);
 
-    @media screen and (max-width: $small-view) {
-      display: none;
-    }
+  form {
+    grid-column: 1;
+    grid-row: 1 / 3;
+  }
+
+  .embed-container {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .tasks-container {
+    grid-column: 2;
+    grid-row: 2;
   }
 }
 
-h1 {
-  font-size: 20px;
+@include on-small-main-col {
+  .grid-container {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto 1fr;
+
+    form {
+      grid-column: 1;
+      grid-row: 2;
+    }
+
+    .embed-container {
+      grid-column: 1;
+      grid-row: 1;
+    }
+
+    .tasks-container {
+      grid-column: 1;
+      grid-row: 3;
+    }
+  }
 }
 
 h2 {
   font-weight: $font-bold;
   font-size: 16px;
-  color: pvar(--mainColor);
-  background-color: pvar(--mainBackgroundColor);
   padding: 0 5px;
   width: fit-content;
-  margin: -8px 0 0;
+  margin-top: 0.5rem;
 }
 
 .section {
   $min-width: 600px;
 
-  @include padding-left(10px);
-
   min-width: $min-width;
-
   margin-bottom: 50px;
-  border: 1px solid $separator-border-color;
+  border: 1px solid transparent;
+  background: pvar(--bg-secondary-400);
   border-radius: 5px;
   width: fit-content;
+
+  @include padding-left(10px);
 
   .form-group,
   .description {
@@ -50,18 +78,14 @@ h2 {
   }
 
   .description {
-    color: pvar(--greyForegroundColor);
+    color: pvar(--fg-300);
     margin-top: 5px;
     margin-bottom: 15px;
   }
 
   @media screen and (max-width: $min-width) {
-    min-width: none;
+    min-width: 100%;
   }
-}
-
-my-timestamp-input {
-  display: block;
 }
 
 my-embed {

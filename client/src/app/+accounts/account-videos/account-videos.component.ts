@@ -1,24 +1,32 @@
-import { Subscription } from 'rxjs'
-import { first } from 'rxjs/operators'
-import { Component, OnDestroy, OnInit } from '@angular/core'
+import { NgIf } from '@angular/common'
+import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core'
 import { ComponentPaginationLight, DisableForReuseHook, ScreenService } from '@app/core'
-import { Account, AccountService, VideoService } from '@app/shared/shared-main'
-import { VideoFilters } from '@app/shared/shared-video-miniature'
+import { Account } from '@app/shared/shared-main/account/account.model'
+import { AccountService } from '@app/shared/shared-main/account/account.service'
+import { VideoService } from '@app/shared/shared-main/video/video.service'
+import { VideoFilters } from '@app/shared/shared-video-miniature/video-filters.model'
 import { VideoSortField } from '@peertube/peertube-models'
+import { Subscription } from 'rxjs'
+import { VideosListComponent } from '../../shared/shared-video-miniature/videos-list.component'
 
 @Component({
   selector: 'my-account-videos',
-  templateUrl: './account-videos.component.html'
+  templateUrl: './account-videos.component.html',
+  standalone: true,
+  imports: [ NgIf, VideosListComponent ]
 })
 export class AccountVideosComponent implements OnInit, OnDestroy, DisableForReuseHook {
+  @ViewChild('videosList') videosList: VideosListComponent
+
   getVideosObservableFunction = this.getVideosObservable.bind(this)
   getSyndicationItemsFunction = this.getSyndicationItems.bind(this)
 
-  title = $localize`Videos`
   defaultSort = '-publishedAt' as VideoSortField
 
   account: Account
   disabled = false
+
+  private alreadyLoaded = false
 
   private accountSub: Subscription
 
@@ -31,8 +39,13 @@ export class AccountVideosComponent implements OnInit, OnDestroy, DisableForReus
 
   ngOnInit () {
     // Parent get the account for us
-    this.accountService.accountLoaded.pipe(first())
-      .subscribe(account => this.account = account)
+    this.accountSub = this.accountService.accountLoaded
+      .subscribe(account => {
+        this.account = account
+        if (this.alreadyLoaded) this.videosList.reloadVideos()
+
+        this.alreadyLoaded = true
+      })
   }
 
   ngOnDestroy () {

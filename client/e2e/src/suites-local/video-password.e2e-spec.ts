@@ -1,10 +1,10 @@
 import { LoginPage } from '../po/login.po'
-import { SignupPage } from '../po/signup.po'
+import { MyAccountPage } from '../po/my-account.po'
 import { PlayerPage } from '../po/player.po'
+import { SignupPage } from '../po/signup.po'
 import { VideoUploadPage } from '../po/video-upload.po'
 import { VideoWatchPage } from '../po/video-watch.po'
-import { go, isMobileDevice, isSafari, waitServerUp } from '../utils'
-import { MyAccountPage } from '../po/my-account.po'
+import { getScreenshotPath, go, isMobileDevice, isSafari, waitServerUp } from '../utils'
 
 describe('Password protected videos', () => {
   let videoUploadPage: VideoUploadPage
@@ -130,9 +130,11 @@ describe('Password protected videos', () => {
 
     it('Should update the playlist to public', async () => {
       const url = await browser.getUrl()
-      const regex = /\/([a-f0-9-]+)$/i
+      const regex = /\/my-library\/video-playlists\/([^/]+)/i
       const match = url.match(regex)
       const uuid = match ? match[1] : null
+
+      expect(uuid).not.toBeNull()
 
       await myAccountPage.updatePlaylistPrivacy(uuid, 'Public')
     })
@@ -140,9 +142,10 @@ describe('Password protected videos', () => {
     it('Should watch the playlist', async () => {
       await myAccountPage.clickOnPlaylist(playlistName)
       await myAccountPage.playPlaylist()
-      playlistUrl = await browser.getUrl()
 
       await videoWatchPage.waitUntilVideoName(publicVideoName1, 40 * 1000)
+      playlistUrl = await browser.getUrl()
+
       await videoWatchPage.waitUntilVideoName(passwordProtectedVideoName, 40 * 1000)
       await videoWatchPage.waitUntilVideoName(publicVideoName2, 40 * 1000)
     })
@@ -153,6 +156,7 @@ describe('Password protected videos', () => {
   })
 
   describe('Regular users', function () {
+
     before(async () => {
       await signupPage.fullSignup({
         accountInfo: {
@@ -220,5 +224,9 @@ describe('Password protected videos', () => {
       await playerPage.playVideo()
       await videoWatchPage.waitUntilVideoName(publicVideoName2, 40 * 1000)
     })
+  })
+
+  after(async () => {
+    await browser.saveScreenshot(getScreenshotPath('after-test.png'))
   })
 })

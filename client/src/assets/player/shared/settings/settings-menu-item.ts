@@ -23,22 +23,22 @@ export interface SettingsMenuItemOptions extends videojs.MenuItemOptions {
 }
 
 class SettingsMenuItem extends MenuItem {
-  settingsButton: SettingsButton
-  dialog: SettingsDialog
-  mainMenu: videojs.Menu
-  panel: SettingsPanel
-  panelChild: SettingsPanelChild
-  panelChildEl: HTMLElement
-  size: number[]
-  menuToLoad: string
-  subMenu: SettingsButton
+  declare settingsButton: SettingsButton
+  declare dialog: SettingsDialog
+  declare mainMenu: videojs.Menu
+  declare panel: SettingsPanel
+  declare panelChild: SettingsPanelChild
+  declare panelChildEl: HTMLElement
+  declare size: number[]
+  declare menuToLoad: string
+  declare subMenu: SettingsButton
 
-  submenuClickHandler: typeof SettingsMenuItem.prototype.onSubmenuClick
-  transitionEndHandler: typeof SettingsMenuItem.prototype.onTransitionEnd
+  declare submenuClickHandler: typeof SettingsMenuItem.prototype.onSubmenuClick
+  declare transitionEndHandler: typeof SettingsMenuItem.prototype.onTransitionEnd
 
-  settingsSubMenuTitleEl_: HTMLElement
-  settingsSubMenuValueEl_: HTMLElement
-  settingsSubMenuEl_: HTMLElement
+  declare settingsSubMenuTitleEl_: HTMLElement
+  declare settingsSubMenuValueEl_: HTMLElement
+  declare settingsSubMenuEl_: HTMLElement
 
   constructor (player: videojs.Player, options?: SettingsMenuItemOptions) {
     super(player, options)
@@ -144,7 +144,7 @@ class SettingsMenuItem extends MenuItem {
   createEl () {
     const el = videojs.dom.createEl('li', {
       className: 'vjs-menu-item',
-      tabIndex: -1
+      tabIndex: 0
     })
 
     this.settingsSubMenuTitleEl_ = videojs.dom.createEl('div', {
@@ -191,8 +191,7 @@ class SettingsMenuItem extends MenuItem {
 
       this.settingsButton.setDialogSize(this.size)
 
-      const firstChild = this.subMenu.menu.children()[0]
-      if (firstChild) firstChild.focus()
+      this.subMenu.menu.focus()
     } else {
       videojs.dom.addClass(this.settingsSubMenuEl_, 'vjs-hidden')
     }
@@ -206,7 +205,9 @@ class SettingsMenuItem extends MenuItem {
   createBackButton () {
     const button = this.subMenu.menu.addChild('MenuItem', {}, 0)
 
+    button.setAttribute('aria-label', this.player().localize('Go back'))
     button.addClass('vjs-back-button');
+
     (button.el() as HTMLElement).innerHTML = this.player().localize(this.subMenu.controlText())
   }
 
@@ -247,8 +248,7 @@ class SettingsMenuItem extends MenuItem {
       this.setMargin()
       mainMenuEl.style.opacity = '1'
 
-      const firstChild = this.mainMenu.children()[0]
-      if (firstChild) firstChild.focus()
+      this.mainMenu.focus()
     }, 0)
   }
 

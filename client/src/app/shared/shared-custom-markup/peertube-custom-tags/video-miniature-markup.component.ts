@@ -1,11 +1,12 @@
 import { finalize } from 'rxjs/operators'
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, EventEmitter, Input, OnInit, Output } from '@angular/core'
 import { AuthService, Notifier } from '@app/core'
-import { FindInBulkService } from '@app/shared/shared-search'
 import { objectKeysTyped } from '@peertube/peertube-core-utils'
-import { Video } from '../../shared-main'
-import { MiniatureDisplayOptions } from '../../shared-video-miniature'
 import { CustomMarkupComponent } from './shared'
+import { MiniatureDisplayOptions, VideoMiniatureComponent } from '../../shared-video-miniature/video-miniature.component'
+import { NgIf } from '@angular/common'
+import { Video } from '@app/shared/shared-main/video/video.model'
+import { FindInBulkService } from '@app/shared/shared-search/find-in-bulk.service'
 
 /*
  * Markup component that creates a video miniature only
@@ -15,7 +16,9 @@ import { CustomMarkupComponent } from './shared'
   selector: 'my-video-miniature-markup',
   templateUrl: 'video-miniature-markup.component.html',
   styleUrls: [ 'video-miniature-markup.component.scss' ],
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  standalone: true,
+  imports: [ NgIf, VideoMiniatureComponent ]
 })
 export class VideoMiniatureMarkupComponent implements CustomMarkupComponent, OnInit {
   @Input() uuid: string
@@ -28,7 +31,7 @@ export class VideoMiniatureMarkupComponent implements CustomMarkupComponent, OnI
     date: true,
     views: true,
     by: true,
-    avatar: false,
+    avatar: true,
     privacyLabel: false,
     privacyText: false,
     state: false,

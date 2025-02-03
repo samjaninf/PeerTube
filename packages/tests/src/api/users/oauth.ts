@@ -1,9 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-expressions,@typescript-eslint/require-await */
 
-import { expect } from 'chai'
 import { wait } from '@peertube/peertube-core-utils'
 import { HttpStatusCode, OAuth2ErrorCode, PeerTubeProblemDocument } from '@peertube/peertube-models'
-import { SQLCommand } from '@tests/shared/sql-command.js'
 import {
   cleanupTests,
   createSingleServer,
@@ -11,6 +9,8 @@ import {
   PeerTubeServer,
   setAccessTokensToServers
 } from '@peertube/peertube-server-commands'
+import { SQLCommand } from '@tests/shared/sql-command.js'
+import { expect } from 'chai'
 
 describe('Test oauth', function () {
   let server: PeerTubeServer
@@ -30,13 +30,18 @@ describe('Test oauth', function () {
     await setAccessTokensToServers([ server ])
 
     sqlCommand = new SQLCommand(server)
+
+    await server.users.create({ username: 'user1', email: 'user@example.com' })
+    await server.users.create({ username: 'user2', password: 'AdvancedPassword' })
+
+    await sqlCommand.setUserEmail('user2', 'User@example.com')
   })
 
   describe('OAuth client', function () {
 
     function expectInvalidClient (body: PeerTubeProblemDocument) {
       expect(body.code).to.equal(OAuth2ErrorCode.INVALID_CLIENT)
-      expect(body.error).to.contain('client is invalid')
+      expect(body.detail).to.contain('client is invalid')
       expect(body.type.startsWith('https://')).to.be.true
       expect(body.type).to.contain(OAuth2ErrorCode.INVALID_CLIENT)
     }
@@ -66,7 +71,7 @@ describe('Test oauth', function () {
 
     function expectInvalidCredentials (body: PeerTubeProblemDocument) {
       expect(body.code).to.equal(OAuth2ErrorCode.INVALID_GRANT)
-      expect(body.error).to.contain('credentials are invalid')
+      expect(body.detail).to.contain('credentials are invalid')
       expect(body.type.startsWith('https://')).to.be.true
       expect(body.type).to.contain(OAuth2ErrorCode.INVALID_GRANT)
     }
@@ -87,6 +92,9 @@ describe('Test oauth', function () {
 
     it('Should be able to login', async function () {
       await server.login.login({ expectedStatus: HttpStatusCode.OK_200 })
+
+      const user = { username: 'User@example.com', password: 'AdvancedPassword' }
+      await server.login.login({ user, expectedStatus: HttpStatusCode.OK_200 })
     })
 
     it('Should be able to login with an insensitive username', async function () {
@@ -98,6 +106,22 @@ describe('Test oauth', function () {
 
       const user3 = { username: 'ROOt', password: server.store.user.password }
       await server.login.login({ user: user3, expectedStatus: HttpStatusCode.OK_200 })
+    })
+
+    it('Should be able to login with an insensitive email when no similar emails exist', async function () {
+      const user = { username: 'ADMIN' + server.internalServerNumber + '@example.com', password: server.store.user.password }
+      await server.login.login({ user, expectedStatus: HttpStatusCode.OK_200 })
+
+      const user2 = { username: 'admin' + server.internalServerNumber + '@example.com', password: server.store.user.password }
+      await server.login.login({ user: user2, expectedStatus: HttpStatusCode.OK_200 })
+    })
+
+    it('Should not be able to login with an insensitive email when similar emails exist', async function () {
+      const user = { username: 'uSer@example.com', password: 'AdvancedPassword' }
+      await server.login.login({ user, expectedStatus: HttpStatusCode.BAD_REQUEST_400 })
+
+      const user2 = { username: 'User@example.com', password: 'AdvancedPassword' }
+      await server.login.login({ user: user2, expectedStatus: HttpStatusCode.OK_200 })
     })
   })
 

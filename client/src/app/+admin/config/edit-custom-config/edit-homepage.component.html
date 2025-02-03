@@ -2,12 +2,12 @@
 
   <ng-container formGroupName="instanceCustomHomepage">
 
-    <div class="homepage row mt-5"> <!-- homepage grid -->
-      <div class="col-12 col-lg-4 col-xl-3">
-        <h2 i18n class="inner-form-title">INSTANCE HOMEPAGE</h2>
+    <div class="homepage pt-two-cols mt-5"> <!-- homepage grid -->
+      <div class="title-col">
+        <h2 i18n>INSTANCE HOMEPAGE</h2>
       </div>
 
-      <div class="col-12 col-lg-8 col-xl-9">
+      <div class="content-col">
 
         <div class="form-group">
           <label i18n for="instanceCustomHomepageContent">Homepage</label>
@@ -16,13 +16,13 @@
           </div>
 
           <my-markdown-textarea
-            name="instanceCustomHomepageContent" formControlName="content"
+            inputId="instanceCustomHomepageContent" formControlName="content"
             [customMarkdownRenderer]="getCustomMarkdownRenderer()" [debounceTime]="500"
             [formError]="formErrors['instanceCustomHomepage.content']"
             dir="ltr"
           ></my-markdown-textarea>
 
-          <div *ngIf="formErrors.instanceCustomHomepage.content" class="form-error">{{ formErrors.instanceCustomHomepage.content }}</div>
+          <div *ngIf="formErrors.instanceCustomHomepage.content" class="form-error" role="alert">{{ formErrors.instanceCustomHomepage.content }}</div>
         </div>
       </div>
     </div>

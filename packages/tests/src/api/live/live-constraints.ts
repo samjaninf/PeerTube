@@ -1,12 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unused-expressions,@typescript-eslint/require-await */
 
-import { expect } from 'chai'
 import { wait } from '@peertube/peertube-core-utils'
-import { LiveVideoError, UserVideoQuota, VideoPrivacy } from '@peertube/peertube-models'
+import { LiveVideoError, UserVideoQuota, VideoPrivacy, VideoResolution } from '@peertube/peertube-models'
 import {
+  PeerTubeServer,
   cleanupTests, createMultipleServers,
   doubleFollow,
-  PeerTubeServer,
   setAccessTokensToServers,
   setDefaultVideoChannel,
   stopFfmpeg,
@@ -14,6 +13,7 @@ import {
   waitUntilLiveReplacedByReplayOnAllServers,
   waitUntilLiveWaitingOnAllServers
 } from '@peertube/peertube-server-commands'
+import { expect } from 'chai'
 import { checkLiveCleanup } from '../../shared/live.js'
 
 describe('Test live constraints', function () {
@@ -38,14 +38,14 @@ describe('Test live constraints', function () {
     return uuid
   }
 
-  async function checkSaveReplay (videoId: string, resolutions = [ 720 ]) {
+  async function checkSaveReplay (videoId: string, savedResolutions?: number[]) {
     for (const server of servers) {
       const video = await server.videos.get({ id: videoId })
       expect(video.isLive).to.be.false
       expect(video.duration).to.be.greaterThan(0)
     }
 
-    await checkLiveCleanup({ server: servers[0], permanent: false, videoUUID: videoId, savedResolutions: resolutions })
+    await checkLiveCleanup({ server: servers[0], permanent: false, videoUUID: videoId, savedResolutions })
   }
 
   function updateQuota (options: { total: number, daily: number }) {
@@ -65,17 +65,8 @@ describe('Test live constraints', function () {
     await setAccessTokensToServers(servers)
     await setDefaultVideoChannel(servers)
 
-    await servers[0].config.updateCustomSubConfig({
-      newConfig: {
-        live: {
-          enabled: true,
-          allowReplay: true,
-          transcoding: {
-            enabled: false
-          }
-        }
-      }
-    })
+    await servers[0].config.enableMinimumTranscoding()
+    await servers[0].config.enableLive({ allowReplay: true, transcoding: false })
 
     {
       const res = await servers[0].users.generate('user1')
@@ -109,7 +100,7 @@ describe('Test live constraints', function () {
     await waitUntilLiveReplacedByReplayOnAllServers(servers, userVideoLiveoId)
     await waitJobs(servers)
 
-    await checkSaveReplay(userVideoLiveoId)
+    await checkSaveReplay(userVideoLiveoId, [ VideoResolution.H_720P ])
 
     const session = await servers[0].live.getReplaySession({ videoId: userVideoLiveoId })
     expect(session.error).to.equal(LiveVideoError.QUOTA_EXCEEDED)
@@ -145,7 +136,7 @@ describe('Test live constraints', function () {
     await waitUntilLiveReplacedByReplayOnAllServers(servers, userVideoLiveoId)
     await waitJobs(servers)
 
-    await checkSaveReplay(userVideoLiveoId)
+    await checkSaveReplay(userVideoLiveoId, [ VideoResolution.H_720P ])
 
     const session = await servers[0].live.getReplaySession({ videoId: userVideoLiveoId })
     expect(session.error).to.equal(LiveVideoError.QUOTA_EXCEEDED)
@@ -203,7 +194,7 @@ describe('Test live constraints', function () {
   it('Should have max duration limit', async function () {
     this.timeout(240000)
 
-    await servers[0].config.updateCustomSubConfig({
+    await servers[0].config.updateExistingConfig({
       newConfig: {
         live: {
           enabled: true,
@@ -232,7 +223,7 @@ describe('Test live constraints', function () {
     await waitUntilLiveReplacedByReplayOnAllServers(servers, userVideoLiveoId)
     await waitJobs(servers)
 
-    await checkSaveReplay(userVideoLiveoId, [ 720, 240, 144 ])
+    await checkSaveReplay(userVideoLiveoId, [ 720, 240, 144, 0 ])
 
     const session = await servers[0].live.getReplaySession({ videoId: userVideoLiveoId })
     expect(session.error).to.equal(LiveVideoError.DURATION_EXCEEDED)

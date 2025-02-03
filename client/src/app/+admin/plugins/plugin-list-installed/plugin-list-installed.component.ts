@@ -1,16 +1,30 @@
-import { Subject } from 'rxjs'
+import { NgFor, NgIf } from '@angular/common'
 import { Component, OnInit } from '@angular/core'
 import { ActivatedRoute, Router } from '@angular/router'
 import { PluginApiService } from '@app/+admin/plugins/shared/plugin-api.service'
-import { ComponentPagination, ConfirmService, hasMoreItems, Notifier } from '@app/core'
+import { ComponentPagination, ConfirmService, hasMoreItems, Notifier, resetCurrentPage, updatePaginationOnDelete } from '@app/core'
 import { PluginService } from '@app/core/plugins/plugin.service'
 import { compareSemVer } from '@peertube/peertube-core-utils'
 import { PeerTubePlugin, PluginType, PluginType_Type } from '@peertube/peertube-models'
+import { Subject } from 'rxjs'
+import { ButtonComponent } from '../../../shared/shared-main/buttons/button.component'
+import { DeleteButtonComponent } from '../../../shared/shared-main/buttons/delete-button.component'
+import { InfiniteScrollerDirective } from '../../../shared/shared-main/common/infinite-scroller.directive'
+import { PluginCardComponent } from '../shared/plugin-card.component'
 
 @Component({
   selector: 'my-plugin-list-installed',
   templateUrl: './plugin-list-installed.component.html',
-  styleUrls: [ './plugin-list-installed.component.scss' ]
+  styleUrls: [ './plugin-list-installed.component.scss' ],
+  standalone: true,
+  imports: [
+    NgIf,
+    InfiniteScrollerDirective,
+    NgFor,
+    PluginCardComponent,
+    ButtonComponent,
+    DeleteButtonComponent
+  ]
 })
 export class PluginListInstalledComponent implements OnInit {
   pluginType: PluginType_Type
@@ -55,8 +69,8 @@ export class PluginListInstalledComponent implements OnInit {
   }
 
   reloadPlugins () {
-    this.pagination.currentPage = 1
     this.plugins = []
+    resetCurrentPage(this.pagination)
 
     this.loadMorePlugins()
   }
@@ -129,7 +143,7 @@ export class PluginListInstalledComponent implements OnInit {
           this.notifier.success($localize`${plugin.name} uninstalled.`)
 
           this.plugins = this.plugins.filter(p => p.name !== plugin.name)
-          this.pagination.totalItems--
+          updatePaginationOnDelete(this.pagination)
 
           this.uninstalling[pluginKey] = false
         },
@@ -176,7 +190,7 @@ export class PluginListInstalledComponent implements OnInit {
   }
 
   getShowRouterLink (plugin: PeerTubePlugin) {
-    return [ '/admin', 'plugins', 'show', this.pluginService.nameToNpmName(plugin.name, plugin.type) ]
+    return [ '/admin', 'settings', 'plugins', 'show', this.pluginService.nameToNpmName(plugin.name, plugin.type) ]
   }
 
   getPluginOrThemeHref (name: string) {
@@ -190,8 +204,8 @@ export class PluginListInstalledComponent implements OnInit {
   private isMajorUpgrade (plugin: PeerTubePlugin) {
     if (!plugin.latestVersion) return false
 
-    const latestMajor = plugin.latestVersion.split('.')[0]
-    const currentMajor = plugin.version.split('.')[0]
+    const latestMajor = parseInt(plugin.latestVersion.split('.')[0])
+    const currentMajor = parseInt(plugin.version.split('.')[0])
 
     return latestMajor > currentMajor
   }

@@ -32,7 +32,7 @@ export class RestExtractor {
     fieldsToConvert: string[] = [ 'createdAt' ],
     format?: DateFormat
   ): ResultList<T> {
-    return this.applyToResultListData(result, this.convertDateToHuman, [ fieldsToConvert, format ])
+    return this.applyToResultListData(result, this.convertDateToHuman.bind(this), [ fieldsToConvert, format ])
   }
 
   convertDateToHuman (target: any, fieldsToConvert: string[], format?: DateFormat) {
@@ -77,6 +77,7 @@ export class RestExtractor {
   }
 
   private buildErrorMessage (err: any) {
+    console.log(err)
     if (err.error instanceof Error) {
       // A client-side or network error occurred. Handle it accordingly.
       const errorMessage = err.error.detail || err.error.title
@@ -90,12 +91,13 @@ export class RestExtractor {
     }
 
     if (err.status !== undefined) {
+      // A fetch response
       const errorMessage = this.buildServerErrorMessage(err)
 
       const message = `Backend returned code ${err.status}, errorMessage is: ${errorMessage}`
 
       if (err.status === HttpStatusCode.NOT_FOUND_404) logger.clientError(message)
-      else logger.error(message)
+      else logger.error(message, { type: err.type, url: err.url })
 
       return errorMessage
     }
@@ -112,10 +114,6 @@ export class RestExtractor {
       return Object.keys(errors)
         .map(key => errors[key].msg)
         .join('. ')
-    }
-
-    if (err.error?.error) {
-      return err.error.error
     }
 
     if (err.status === HttpStatusCode.PAYLOAD_TOO_LARGE_413) {
@@ -141,6 +139,6 @@ export class RestExtractor {
       return $localize`Server is unavailable. Please retry later.`
     }
 
-    return $localize`Unknown server error`
+    return err.error?.error || err.error?.detail || err.error?.title || $localize`Unknown server error`
   }
 }

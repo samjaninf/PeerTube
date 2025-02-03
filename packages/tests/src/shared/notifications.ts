@@ -7,7 +7,8 @@ import {
   UserNotification,
   UserNotificationSetting,
   UserNotificationSettingValue,
-  UserNotificationType
+  UserNotificationType,
+  UserNotificationType_Type
 } from '@peertube/peertube-models'
 import {
   ConfigCommand,
@@ -17,11 +18,13 @@ import {
   setAccessTokensToServers,
   setDefaultAccountAvatar,
   setDefaultChannelAvatar,
-  setDefaultVideoChannel
+  setDefaultVideoChannel,
+  waitJobs
 } from '@peertube/peertube-server-commands'
 import { expect } from 'chai'
 import { inspect } from 'util'
 import { MockSmtpServer } from './mock-servers/index.js'
+import { wait } from '@peertube/peertube-core-utils'
 
 type CheckerBaseParams = {
   server: PeerTubeServer
@@ -51,8 +54,27 @@ function getAllNotificationsSettings (): UserNotificationSetting {
     autoInstanceFollowing: UserNotificationSettingValue.WEB | UserNotificationSettingValue.EMAIL,
     newPeerTubeVersion: UserNotificationSettingValue.WEB | UserNotificationSettingValue.EMAIL,
     myVideoStudioEditionFinished: UserNotificationSettingValue.WEB | UserNotificationSettingValue.EMAIL,
+    myVideoTranscriptionGenerated: UserNotificationSettingValue.WEB | UserNotificationSettingValue.EMAIL,
     newPluginVersion: UserNotificationSettingValue.WEB | UserNotificationSettingValue.EMAIL
   }
+}
+
+async function waitUntilNotification (options: {
+  server: PeerTubeServer
+  notificationType: UserNotificationType_Type
+  token: string
+  fromDate: Date
+}) {
+  const { server, fromDate, notificationType, token } = options
+
+  do {
+    const { data } = await server.notifications.list({ start: 0, count: 5, token })
+    if (data.some(n => n.type === notificationType && new Date(n.createdAt) >= fromDate)) break
+
+    await wait(500)
+  } while (true)
+
+  await waitJobs([ server ])
 }
 
 async function checkNewVideoFromSubscription (options: CheckerBaseParams & {
@@ -85,7 +107,37 @@ async function checkNewVideoFromSubscription (options: CheckerBaseParams & {
   await checkNotification({ ...options, notificationChecker, emailNotificationFinder })
 }
 
-async function checkVideoIsPublished (options: CheckerBaseParams & {
+async function checkNewLiveFromSubscription (options: CheckerBaseParams & {
+  videoName: string
+  shortUUID: string
+  checkType: CheckerType
+}) {
+  const { videoName, shortUUID } = options
+  const notificationType = UserNotificationType.NEW_LIVE_FROM_SUBSCRIPTION
+
+  function notificationChecker (notification: UserNotification, checkType: CheckerType) {
+    if (checkType === 'presence') {
+      expect(notification).to.not.be.undefined
+      expect(notification.type).to.equal(notificationType)
+
+      checkVideo(notification.video, videoName, shortUUID)
+      checkActor(notification.video.channel)
+    } else {
+      expect(notification).to.satisfy((n: UserNotification) => {
+        return n === undefined || n.type !== UserNotificationType.NEW_LIVE_FROM_SUBSCRIPTION || n.video.name !== videoName
+      })
+    }
+  }
+
+  function emailNotificationFinder (email: object) {
+    const text = email['text']
+    return text.indexOf(shortUUID) !== -1 && text.indexOf('Your subscription') !== -1
+  }
+
+  await checkNotification({ ...options, notificationChecker, emailNotificationFinder })
+}
+
+async function checkMyVideoIsPublished (options: CheckerBaseParams & {
   videoName: string
   shortUUID: string
   checkType: CheckerType
@@ -386,8 +438,9 @@ async function checkNewCommentOnMyVideo (options: CheckerBaseParams & {
   commentId: number
   threadId: number
   checkType: CheckerType
+  approval?: boolean // default false
 }) {
-  const { server, shortUUID, commentId, threadId, checkType, emails } = options
+  const { server, shortUUID, commentId, threadId, checkType, emails, approval = false } = options
   const notificationType = UserNotificationType.NEW_COMMENT_ON_MY_VIDEO
 
   function notificationChecker (notification: UserNotification, checkType: CheckerType) {
@@ -398,17 +451,25 @@ async function checkNewCommentOnMyVideo (options: CheckerBaseParams & {
       checkComment(notification.comment, commentId, threadId)
       checkActor(notification.comment.account)
       checkVideo(notification.comment.video, undefined, shortUUID)
+
+      expect(notification.comment.heldForReview).to.equal(approval)
     } else {
       expect(notification).to.satisfy((n: UserNotification) => {
-        return n === undefined || n.comment === undefined || n.comment.id !== commentId
+        return n?.comment === undefined || n.comment.id !== commentId
       })
     }
   }
 
-  const commentUrl = `${server.url}/w/${shortUUID};threadId=${threadId}`
+  const commentUrl = approval
+    ? `${server.url}/my-account/videos/comments?search=heldForReview:true`
+    : `${server.url}/w/${shortUUID};threadId=${threadId}`
 
   function emailNotificationFinder (email: object) {
-    return email['text'].indexOf(commentUrl) !== -1
+    const text = email['text']
+
+    return text.includes(commentUrl) &&
+      (approval && text.includes('requires approval')) ||
+      (!approval && !text.includes('requires approval'))
   }
 
   await checkNotification({ ...options, notificationChecker, emailNotificationFinder })
@@ -437,7 +498,7 @@ async function checkNewVideoAbuseForModerators (options: CheckerBaseParams & {
       checkVideo(notification.abuse.video, videoName, shortUUID)
     } else {
       expect(notification).to.satisfy((n: UserNotification) => {
-        return n === undefined || n.abuse === undefined || n.abuse.video.shortUUID !== shortUUID
+        return n?.abuse === undefined || n.abuse.video.shortUUID !== shortUUID
       })
     }
   }
@@ -499,7 +560,7 @@ async function checkAbuseStateChange (options: CheckerBaseParams & {
       expect(notification.abuse.state).to.equal(state)
     } else {
       expect(notification).to.satisfy((n: UserNotification) => {
-        return n === undefined || n.abuse === undefined || n.abuse.id !== abuseId
+        return n?.abuse === undefined || n.abuse.id !== abuseId
       })
     }
   }
@@ -534,7 +595,7 @@ async function checkNewCommentAbuseForModerators (options: CheckerBaseParams & {
       checkVideo(notification.abuse.comment.video, videoName, shortUUID)
     } else {
       expect(notification).to.satisfy((n: UserNotification) => {
-        return n === undefined || n.abuse === undefined || n.abuse.comment.video.shortUUID !== shortUUID
+        return n?.abuse === undefined || n.abuse.comment.video.shortUUID !== shortUUID
       })
     }
   }
@@ -563,7 +624,7 @@ async function checkNewAccountAbuseForModerators (options: CheckerBaseParams & {
       expect(notification.abuse.account.displayName).to.equal(displayName)
     } else {
       expect(notification).to.satisfy((n: UserNotification) => {
-        return n === undefined || n.abuse === undefined || n.abuse.account.displayName !== displayName
+        return n?.abuse === undefined || n.abuse.account.displayName !== displayName
       })
     }
   }
@@ -593,14 +654,14 @@ async function checkVideoAutoBlacklistForModerators (options: CheckerBaseParams 
       checkVideo(notification.videoBlacklist.video, videoName, shortUUID)
     } else {
       expect(notification).to.satisfy((n: UserNotification) => {
-        return n === undefined || n.video === undefined || n.video.shortUUID !== shortUUID
+        return n?.video === undefined || n.video.shortUUID !== shortUUID
       })
     }
   }
 
   function emailNotificationFinder (email: object) {
     const text = email['text']
-    return text.indexOf(shortUUID) !== -1 && email['text'].indexOf('video-auto-blacklist/list') !== -1
+    return text.indexOf(shortUUID) !== -1 && email['text'].indexOf('moderation/video-blocks/list') !== -1
   }
 
   await checkNotification({ ...options, notificationChecker, emailNotificationFinder })
@@ -653,7 +714,7 @@ async function checkNewPeerTubeVersion (options: CheckerBaseParams & {
       expect(notification.peertube.latestVersion).to.equal(latestVersion)
     } else {
       expect(notification).to.satisfy((n: UserNotification) => {
-        return n === undefined || n.peertube === undefined || n.peertube.latestVersion !== latestVersion
+        return n?.peertube === undefined || n.peertube.latestVersion !== latestVersion
       })
     }
   }
@@ -684,7 +745,7 @@ async function checkNewPluginVersion (options: CheckerBaseParams & {
       expect(notification.plugin.type).to.equal(pluginType)
     } else {
       expect(notification).to.satisfy((n: UserNotification) => {
-        return n === undefined || n.plugin === undefined || n.plugin.name !== pluginName
+        return n?.plugin === undefined || n.plugin.name !== pluginName
       })
     }
   }
@@ -693,6 +754,40 @@ async function checkNewPluginVersion (options: CheckerBaseParams & {
     const text = email['text']
 
     return text.includes(pluginName)
+  }
+
+  await checkNotification({ ...options, notificationChecker, emailNotificationFinder })
+}
+
+async function checkMyVideoTranscriptionGenerated (options: CheckerBaseParams & {
+  videoName: string
+  shortUUID: string
+  language: {
+    id: string
+    label: string
+  }
+  checkType: CheckerType
+}) {
+  const { videoName, shortUUID, language } = options
+  const notificationType = UserNotificationType.MY_VIDEO_TRANSCRIPTION_GENERATED
+
+  function notificationChecker (notification: UserNotification, checkType: CheckerType) {
+    if (checkType === 'presence') {
+      expect(notification).to.not.be.undefined
+      expect(notification.type).to.equal(notificationType)
+
+      expect(notification.videoCaption).to.exist
+      expect(notification.videoCaption.language.id).to.equal(language.id)
+      expect(notification.videoCaption.language.label).to.equal(language.label)
+      checkVideo(notification.videoCaption.video, videoName, shortUUID)
+    } else {
+      expect(notification.videoCaption).to.satisfy(c => c === undefined || c.Video.shortUUID !== shortUUID)
+    }
+  }
+
+  function emailNotificationFinder (email: object) {
+    const text: string = email['text']
+    return text.includes(shortUUID) && text.includes('Transcription in ' + language.label)
   }
 
   await checkNotification({ ...options, notificationChecker, emailNotificationFinder })
@@ -780,10 +875,13 @@ export {
 
   getAllNotificationsSettings,
 
+  waitUntilNotification,
+
   checkMyVideoImportIsFinished,
   checkUserRegistered,
   checkAutoInstanceFollowing,
-  checkVideoIsPublished,
+  checkMyVideoIsPublished,
+  checkNewLiveFromSubscription,
   checkNewVideoFromSubscription,
   checkNewActorFollow,
   checkNewCommentOnMyVideo,
@@ -800,7 +898,8 @@ export {
   checkNewPeerTubeVersion,
   checkNewPluginVersion,
   checkVideoStudioEditionIsFinished,
-  checkRegistrationRequest
+  checkRegistrationRequest,
+  checkMyVideoTranscriptionGenerated
 }
 
 // ---------------------------------------------------------------------------
@@ -841,10 +940,9 @@ async function checkNotification (options: CheckerBaseParams & {
 
   if (check.mail) {
     // Last email
-    const email = emails
-                      .slice()
-                      .reverse()
-                      .find(e => emailNotificationFinder(e))
+    const email = emails.slice()
+      .reverse()
+      .find(e => emailNotificationFinder(e))
 
     if (checkType === 'presence') {
       const texts = emails.map(e => e.text)
@@ -868,6 +966,7 @@ function checkVideo (video: any, videoName?: string, shortUUID?: string) {
     expect(video.shortUUID).to.equal(shortUUID)
   }
 
+  expect(video.state).to.exist
   expect(video.id).to.be.a('number')
 }
 
@@ -880,7 +979,7 @@ function checkActor (actor: any, options: { withAvatar?: boolean } = {}) {
 
   if (withAvatar) {
     expect(actor.avatars).to.be.an('array')
-    expect(actor.avatars).to.have.lengthOf(2)
+    expect(actor.avatars).to.have.lengthOf(4)
     expect(actor.avatars[0].path).to.exist.and.not.empty
   }
 }

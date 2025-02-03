@@ -1,12 +1,20 @@
+import { NgFor, NgIf } from '@angular/common'
 import { Component, Input, OnInit } from '@angular/core'
+import { RouterLink } from '@angular/router'
 import { durationToString } from '@app/helpers'
 import { AbusePredefinedReasonsString } from '@peertube/peertube-models'
+import { ActorAvatarComponent } from '../shared-actor-image/actor-avatar.component'
+import { GlobalIconComponent } from '../shared-icons/global-icon.component'
+import { PTDatePipe } from '../shared-main/common/date.pipe'
+import { EmbedComponent } from '../shared-main/video/embed.component'
 import { ProcessedAbuse } from './processed-abuse.model'
 
 @Component({
   selector: 'my-abuse-details',
   templateUrl: './abuse-details.component.html',
-  styleUrls: [ '../shared-moderation/moderation.scss', './abuse-details.component.scss' ]
+  styleUrls: [ '../shared-moderation/moderation.scss', './abuse-details.component.scss' ],
+  standalone: true,
+  imports: [ NgIf, RouterLink, ActorAvatarComponent, GlobalIconComponent, NgFor, EmbedComponent, PTDatePipe ]
 })
 export class AbuseDetailsComponent implements OnInit {
   @Input() abuse: ProcessedAbuse

@@ -3,11 +3,13 @@
     <my-actor-avatar [actor]="user?.account" [actorType]="getAvatarActorType()" size="25"></my-actor-avatar>
 
     <div class="textarea-wrapper">
-      <textarea i18n-placeholder placeholder="Add comment..." myAutoResize
-                [readonly]="(user === null) ? true : false"
-                (click)="openVisitorModal($event)"
-                formControlName="text" [ngClass]="{ 'input-error': formErrors['text'] }"
-                (keyup.control.enter)="onValidKey()" (keyup.meta.enter)="onValidKey()" #textarea>
+      <textarea
+        i18n-placeholder placeholder="Add comment..." myAutoResize
+        [readonly]="(user === null) ? true : false"
+        (click)="openVisitorModal($event)"
+        formControlName="text" [ngClass]="{ 'input-error': formErrors['text'] }"
+        (keyup.control.enter)="onValidKey()" (keyup.meta.enter)="onValidKey()" #textarea
+      >
       </textarea>
 
       <my-help
@@ -37,27 +39,32 @@
           </ul>
         </ng-template>
       </my-help>
-      <div *ngIf="formErrors.text" class="form-error">
+      <div *ngIf="formErrors.text" class="form-error" role="alert">
         {{ formErrors.text }}
       </div>
     </div>
   </div>
 
   <div class="comment-buttons">
-    <button *ngIf="isAddButtonDisplayed()" class="peertube-button tertiary-button cancel-button" (click)="cancelCommentReply()" type="button" i18n>
-      Cancel
-    </button>
+    @if (isAddButtonDisplayed()) {
+      <button class="peertube-button tertiary-button cancel-button me-2" (click)="cancelCommentReply()" type="button" i18n>
+        Cancel
+      </button>
 
-    <button *ngIf="isAddButtonDisplayed()" class="peertube-button orange-button" [ngClass]="{ disabled: !form.valid || addingComment }">
-      {{ addingCommentButtonValue }}
-    </button>
+      <button class="peertube-button primary-button" [disabled]="!form.valid || addingComment">
+        {{ addingCommentButtonValue }}
+      </button>
+    }
   </div>
 </form>
 
 <ng-template #visitorModal let-modal>
   <div class="modal-header">
     <h4 class="modal-title" id="modal-basic-title" i18n>You are one step away from commenting</h4>
-    <my-global-icon iconName="cross" aria-label="Close" role="button" (click)="hideModals()"></my-global-icon>
+
+    <button class="border-0 p-0" title="Close this modal" i18n-title (click)="hideModals()">
+      <my-global-icon iconName="cross"></my-global-icon>
+    </button>
   </div>
 
   <div class="modal-body">
@@ -70,19 +77,23 @@
 
   <div class="modal-footer inputs">
     <input
-      type="button" role="button" i18n-value value="Cancel" class="peertube-button grey-button"
+      type="button" role="button" i18n-value value="Cancel" class="peertube-button secondary-button"
       (click)="hideModals()" (key.enter)="hideModals()"
     >
 
-    <my-login-link i18n-label label="Login to comment" className="peertube-button-link orange-button"></my-login-link>
+    <my-login-link i18n-label label="Login to comment" className="peertube-button-link primary-button"></my-login-link>
   </div>
 </ng-template>
 
 <ng-template #emojiModal>
   <div class="modal-header">
     <h4 class="modal-title" id="modal-basic-title" i18n>Markdown Emoji List</h4>
-    <my-global-icon iconName="cross" aria-label="Close" role="button" (click)="hideModals()"></my-global-icon>
+
+    <button class="border-0 p-0" title="Close this modal" i18n-title (click)="hideModals()">
+      <my-global-icon iconName="cross"></my-global-icon>
+    </button>
   </div>
+
   <div class="modal-body">
     <div class="emoji-flex">
       <div class="emoji-flex-item" *ngFor="let emojiMarkup of getEmojiMarkupList()">

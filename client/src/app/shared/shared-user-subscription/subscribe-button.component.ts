@@ -1,16 +1,34 @@
-import { concat, forkJoin, merge } from 'rxjs'
-import { Component, Input, OnChanges, OnInit } from '@angular/core'
+import { NgClass, NgIf, NgTemplateOutlet } from '@angular/common'
+import { Component, Input, OnChanges, ViewChild } from '@angular/core'
 import { AuthService, Notifier, RedirectService } from '@app/core'
-import { Account, VideoChannel, VideoService } from '@app/shared/shared-main'
+import { NgbDropdown, NgbDropdownItem, NgbDropdownMenu, NgbDropdownToggle } from '@ng-bootstrap/ng-bootstrap'
 import { FeedFormat } from '@peertube/peertube-models'
+import { concat, forkJoin, merge } from 'rxjs'
+import { Account } from '../shared-main/account/account.model'
+import { VideoChannel } from '../shared-main/channel/video-channel.model'
+import { NumberFormatterPipe } from '../shared-main/common/number-formatter.pipe'
+import { VideoService } from '../shared-main/video/video.service'
+import { RemoteSubscribeComponent } from './remote-subscribe.component'
 import { UserSubscriptionService } from './user-subscription.service'
 
 @Component({
   selector: 'my-subscribe-button',
   templateUrl: './subscribe-button.component.html',
-  styleUrls: [ './subscribe-button.component.scss' ]
+  styleUrls: [ './subscribe-button.component.scss' ],
+  standalone: true,
+  imports: [
+    NgClass,
+    NgIf,
+    NgTemplateOutlet,
+    NgbDropdown,
+    NgbDropdownToggle,
+    NgbDropdownMenu,
+    NgbDropdownItem,
+    RemoteSubscribeComponent,
+    NumberFormatterPipe
+  ]
 })
-export class SubscribeButtonComponent implements OnInit, OnChanges {
+export class SubscribeButtonComponent implements OnChanges {
   /**
    * SubscribeButtonComponent can be used with a single VideoChannel passed as [VideoChannel],
    * or with an account and a full list of that account's videoChannels. The latter is intended
@@ -19,10 +37,13 @@ export class SubscribeButtonComponent implements OnInit, OnChanges {
    */
   @Input() account: Account
   @Input() videoChannels: VideoChannel[]
-  @Input() displayFollowers = false
   @Input() size: 'small' | 'normal' = 'normal'
 
+  @ViewChild('dropdown') dropdown: NgbDropdown
+
   subscribed = new Map<string, boolean>()
+
+  buttonClasses: Record<string, boolean> = {}
 
   constructor (
     private authService: AuthService,
@@ -76,15 +97,20 @@ export class SubscribeButtonComponent implements OnInit, OnChanges {
     return this.isUserLoggedIn() && this.videoChannels.length > 1 && this.isAtLeastOneChannelSubscribed
   }
 
-  ngOnInit () {
-    this.loadSubscribedStatus()
+  get isSingleSubscribe () {
+    return !this.account
   }
 
   ngOnChanges () {
-    this.ngOnInit()
+    this.loadSubscribedStatus()
+    this.buildClasses()
   }
 
+  // ---------------------------------------------------------------------------
+
   subscribe () {
+    if (this.dropdown) this.dropdown.close()
+
     if (this.isUserLoggedIn()) {
       return this.localSubscribe()
     }
@@ -92,7 +118,7 @@ export class SubscribeButtonComponent implements OnInit, OnChanges {
     return this.gotoLogin()
   }
 
-  localSubscribe () {
+  private localSubscribe () {
     const subscribedStatus = this.subscribeStatus(false)
 
     const observableBatch = this.videoChannels
@@ -103,6 +129,8 @@ export class SubscribeButtonComponent implements OnInit, OnChanges {
     forkJoin(observableBatch)
       .subscribe({
         next: () => {
+          this.buildClasses()
+
           this.notifier.success(
             this.account
               ? $localize`Subscribed to all current channels of ${this.account.displayName}. You will be notified of all their new videos.`
@@ -116,13 +144,17 @@ export class SubscribeButtonComponent implements OnInit, OnChanges {
       })
   }
 
+  // ---------------------------------------------------------------------------
+
   unsubscribe () {
+    if (this.dropdown) this.dropdown.close()
+
     if (this.isUserLoggedIn()) {
       this.localUnsubscribe()
     }
   }
 
-  localUnsubscribe () {
+  private localUnsubscribe () {
     const subscribeStatus = this.subscribeStatus(true)
 
     const observableBatch = this.videoChannels
@@ -133,6 +165,8 @@ export class SubscribeButtonComponent implements OnInit, OnChanges {
     concat(...observableBatch)
       .subscribe({
         complete: () => {
+          this.buildClasses()
+
           this.notifier.success(
             this.account
               ? $localize`Unsubscribed from all channels of ${this.account.nameWithHost}`
@@ -145,6 +179,8 @@ export class SubscribeButtonComponent implements OnInit, OnChanges {
         error: err => this.notifier.error(err.message)
       })
   }
+
+  // ---------------------------------------------------------------------------
 
   isUserLoggedIn () {
     return this.authService.isLoggedIn()
@@ -168,7 +204,7 @@ export class SubscribeButtonComponent implements OnInit, OnChanges {
   }
 
   isRemoteSubscribeAvailable () {
-    return !this.isUserLoggedIn()
+    return this.isSingleSubscribe && !this.isUserLoggedIn()
   }
 
   private getChannelHandler (videoChannel: VideoChannel) {
@@ -186,10 +222,22 @@ export class SubscribeButtonComponent implements OnInit, OnChanges {
         this.userSubscriptionService.listenToSubscriptionCacheChange(handle),
         this.userSubscriptionService.doesSubscriptionExist(handle)
       ).subscribe({
-        next: res => this.subscribed.set(handle, res),
+        next: res => {
+          this.subscribed.set(handle, res)
+
+          this.buildClasses()
+        },
 
         error: err => this.notifier.error(err.message)
       })
+    }
+  }
+
+  private buildClasses () {
+    this.buttonClasses = {
+      'peertube-button': true,
+      'primary-button': !this.isAllChannelsSubscribed,
+      'secondary-button': this.isAllChannelsSubscribed
     }
   }
 }

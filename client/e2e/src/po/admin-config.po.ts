@@ -8,9 +8,9 @@ export class AdminConfigPage {
       'basic-configuration': 'APPEARANCE',
       'instance-information': 'INSTANCE'
     }
-    await go('/admin/config/edit-custom#' + tab)
+    await go('/admin/settings/config/edit-custom#' + tab)
 
-    await $('.inner-form-title=' + waitTitles[tab]).waitForDisplayed()
+    await $('h2=' + waitTitles[tab]).waitForDisplayed()
   }
 
   async updateNSFWSetting (newValue: 'do_not_list' | 'blur' | 'display') {

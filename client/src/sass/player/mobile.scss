@@ -51,7 +51,7 @@
   height: 100%;
   top: 0;
 
-  .vjs-user-active,
+  .vjs-user-active:not(.vjs-force-inactive),
   .vjs-paused {
     display: block;
   }
@@ -88,7 +88,7 @@
 
     .icon {
       opacity: 0;
-      animation: fadeInAndOut 1s linear infinite;
+      animation: fadeInAndOut 750ms linear infinite;
 
       &::before {
         font-size: 20px;
@@ -161,9 +161,9 @@
   }
 }
 
-.vjs-has-started {
+.vjs-can-play.vjs-has-started {
 
-  &.vjs-user-active,
+  &.vjs-user-active:not(.vjs-force-inactive),
   &.vjs-paused {
     .vjs-mobile-buttons-overlay {
       display: block;
@@ -183,6 +183,13 @@
     .main-button {
       display: none;
     }
+  }
+}
+
+.vjs-force-inactive,
+.vjs-fast-seeking {
+   .vjs-control-bar {
+    display: none;
   }
 }
 

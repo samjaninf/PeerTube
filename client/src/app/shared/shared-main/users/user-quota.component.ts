@@ -1,18 +1,18 @@
-import { Subject } from 'rxjs'
-import { Component, Input, OnInit } from '@angular/core'
-import { User, UserService } from '@app/core'
-import { BytesPipe } from '../angular'
+import { NgIf } from '@angular/common'
+import { Component, OnInit } from '@angular/core'
+import { AuthService, UserService } from '@app/core'
+import { first } from 'rxjs'
+import { BytesPipe } from '../common/bytes.pipe'
+import { ProgressBarComponent } from '../common/progress-bar.component'
 
 @Component({
   selector: 'my-user-quota',
   templateUrl: './user-quota.component.html',
-  styleUrls: [ './user-quota.component.scss' ]
+  standalone: true,
+  imports: [ NgIf, BytesPipe, ProgressBarComponent ]
 })
 
 export class UserQuotaComponent implements OnInit {
-  @Input() user: User = null
-  @Input() userInformationLoaded: Subject<any>
-
   userVideoQuota = '0'
   userVideoQuotaUsed = 0
   userVideoQuotaPercentage = 15
@@ -21,10 +21,17 @@ export class UserQuotaComponent implements OnInit {
   userVideoQuotaUsedDaily = 0
   userVideoQuotaDailyPercentage = 15
 
-  constructor (private userService: UserService) { }
+  constructor (
+    private userService: UserService,
+    private auth: AuthService
+  ) { }
+
+  get user () {
+    return this.auth.getUser()
+  }
 
   ngOnInit () {
-    this.userInformationLoaded.subscribe(
+    this.auth.userInformationLoaded.pipe(first()).subscribe(
       () => {
         if (this.user.videoQuota !== -1) {
           this.userVideoQuota = new BytesPipe().transform(this.user.videoQuota, 0).toString()
@@ -54,11 +61,11 @@ export class UserQuotaComponent implements OnInit {
     return this.user.videoQuotaDaily !== -1
   }
 
-  titleVideoQuota () {
-    return `${new BytesPipe().transform(this.userVideoQuotaUsed, 0).toString()} / ${this.userVideoQuota}`
+  labelQuota () {
+    return `Total video quota: ${new BytesPipe().transform(this.userVideoQuotaUsed, 0).toString()} / ${this.userVideoQuota}`
   }
 
-  titleVideoQuotaDaily () {
-    return `${new BytesPipe().transform(this.userVideoQuotaUsedDaily, 0).toString()} / ${this.userVideoQuotaDaily}`
+  labelQuotaDaily () {
+    return `Total daily video quota: ${new BytesPipe().transform(this.userVideoQuotaUsedDaily, 0).toString()} / ${this.userVideoQuotaDaily}`
   }
 }

@@ -8,4 +8,8 @@ export type PluginClientScope =
   'video-edit' |
   'admin-plugin' |
   'my-library' |
-  'video-channel'
+  'video-channel' |
+  'my-account' |
+  'admin-users' |
+  'admin-comments' |
+  'moderation'

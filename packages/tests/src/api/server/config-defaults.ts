@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-expressions,@typescript-eslint/require-await */
 
 import { expect } from 'chai'
-import { VideoDetails, VideoPrivacy } from '@peertube/peertube-models'
+import { VideoCommentPolicy, VideoDetails, VideoPrivacy } from '@peertube/peertube-models'
 import {
   cleanupTests,
   createSingleServer,
@@ -9,7 +9,7 @@ import {
   setAccessTokensToServers,
   setDefaultVideoChannel
 } from '@peertube/peertube-server-commands'
-import { FIXTURE_URLS } from '@tests/shared/tests.js'
+import { FIXTURE_URLS } from '@tests/shared/fixture-urls.js'
 
 describe('Test config defaults', function () {
   let server: PeerTubeServer
@@ -31,7 +31,7 @@ describe('Test config defaults', function () {
       const overrideConfig = {
         defaults: {
           publish: {
-            comments_enabled: false,
+            comments_policy: 2,
             download_enabled: false,
             privacy: VideoPrivacy.INTERNAL,
             licence: 4
@@ -46,20 +46,21 @@ describe('Test config defaults', function () {
     const attributes = {
       name: 'video',
       downloadEnabled: undefined,
-      commentsEnabled: undefined,
+      commentsPolicy: undefined,
       licence: undefined,
       privacy: VideoPrivacy.PUBLIC // Privacy is mandatory for server
     }
 
     function checkVideo (video: VideoDetails) {
       expect(video.downloadEnabled).to.be.false
+      expect(video.commentsPolicy.id).to.equal(VideoCommentPolicy.DISABLED)
       expect(video.commentsEnabled).to.be.false
       expect(video.licence.id).to.equal(4)
     }
 
     before(async function () {
       await server.config.disableTranscoding()
-      await server.config.enableImports()
+      await server.config.enableVideoImports()
       await server.config.enableLive({ allowReplay: false, transcoding: false })
     })
 
@@ -67,6 +68,7 @@ describe('Test config defaults', function () {
       const config = await server.config.getConfig()
 
       expect(config.defaults.publish.commentsEnabled).to.be.false
+      expect(config.defaults.publish.commentsPolicy).to.equal(VideoCommentPolicy.DISABLED)
       expect(config.defaults.publish.downloadEnabled).to.be.false
       expect(config.defaults.publish.licence).to.equal(4)
       expect(config.defaults.publish.privacy).to.equal(VideoPrivacy.INTERNAL)
@@ -82,7 +84,7 @@ describe('Test config defaults', function () {
     })
 
     it('Should respect default values when importing a video using URL', async function () {
-      const { video: { id } } = await server.imports.importVideo({
+      const { video: { id } } = await server.videoImports.importVideo({
         attributes: {
           ...attributes,
           channelId,
@@ -95,7 +97,7 @@ describe('Test config defaults', function () {
     })
 
     it('Should respect default values when importing a video using magnet URI', async function () {
-      const { video: { id } } = await server.imports.importVideo({
+      const { video: { id } } = await server.videoImports.importVideo({
         attributes: {
           ...attributes,
           channelId,
@@ -210,9 +212,52 @@ describe('Test config defaults', function () {
     })
   })
 
+  describe('Default player value', function () {
+
+    before(async function () {
+      const overrideConfig = {
+        defaults: {
+          player: {
+            auto_play: false
+          }
+        },
+        signup: {
+          limit: 15
+        }
+      }
+
+      await server.kill()
+      await server.run(overrideConfig)
+    })
+
+    it('Should have appropriate autoplay config', async function () {
+      const config = await server.config.getConfig()
+
+      expect(config.defaults.player.autoPlay).to.be.false
+    })
+
+    it('Should create a user with this default setting', async function () {
+      await server.users.create({ username: 'user_autoplay_1' })
+      const userToken = await server.login.getAccessToken('user_autoplay_1')
+
+      const { autoPlayVideo } = await server.users.getMyInfo({ token: userToken })
+      expect(autoPlayVideo).to.be.false
+    })
+
+    it('Should register a user with this default setting', async function () {
+      await server.registrations.register({ username: 'user_autoplay_2' })
+
+      const userToken = await server.login.getAccessToken('user_autoplay_2')
+
+      const { autoPlayVideo } = await server.users.getMyInfo({ token: userToken })
+      expect(autoPlayVideo).to.be.false
+    })
+  })
+
   describe('Default user attributes', function () {
+
     it('Should create a user and register a user with the default config', async function () {
-      await server.config.updateCustomSubConfig({
+      await server.config.updateExistingConfig({
         newConfig: {
           user: {
             history: {
@@ -252,7 +297,7 @@ describe('Test config defaults', function () {
     })
 
     it('Should update config and create a user and register a user with the new default config', async function () {
-      await server.config.updateCustomSubConfig({
+      await server.config.updateExistingConfig({
         newConfig: {
           user: {
             history: {

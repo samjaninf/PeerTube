@@ -30,22 +30,28 @@ async function processViewsBuffer (servers: PeerTubeServer[]) {
   await waitJobs(servers)
 }
 
-async function prepareViewsServers () {
-  const servers = await createMultipleServers(2)
+async function prepareViewsServers (options: {
+  viewExpiration?: string // default 1 second
+  trustViewerSessionId?: boolean // default true
+} = {}) {
+  const { viewExpiration = '1 second', trustViewerSessionId = true } = options
+
+  const config = {
+    views: {
+      videos: {
+        view_expiration: viewExpiration,
+        trust_viewer_session_id: trustViewerSessionId,
+        count_view_after: '10 seconds'
+      }
+    }
+  }
+
+  const servers = await createMultipleServers(2, config)
   await setAccessTokensToServers(servers)
   await setDefaultVideoChannel(servers)
 
-  await servers[0].config.updateCustomSubConfig({
-    newConfig: {
-      live: {
-        enabled: true,
-        allowReplay: true,
-        transcoding: {
-          enabled: false
-        }
-      }
-    }
-  })
+  await servers[0].config.enableMinimumTranscoding()
+  await servers[0].config.enableLive({ allowReplay: true, transcoding: false })
 
   await doubleFollow(servers[0], servers[1])
 

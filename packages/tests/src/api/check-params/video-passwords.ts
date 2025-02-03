@@ -1,23 +1,24 @@
-import { expect } from 'chai'
 import {
   HttpStatusCode,
   HttpStatusCodeType,
   PeerTubeProblemDocument,
   ServerErrorCode,
+  VideoCommentPolicy,
   VideoCreateResult,
   VideoPrivacy
 } from '@peertube/peertube-models'
 import { buildAbsoluteFixturePath } from '@peertube/peertube-node-utils'
 import {
+  PeerTubeServer,
   cleanupTests,
   createSingleServer,
   makePostBodyRequest,
-  PeerTubeServer,
   setAccessTokensToServers
 } from '@peertube/peertube-server-commands'
 import { checkBadCountPagination, checkBadSortPagination, checkBadStartPagination } from '@tests/shared/checks.js'
-import { FIXTURE_URLS } from '@tests/shared/tests.js'
+import { FIXTURE_URLS } from '@tests/shared/fixture-urls.js'
 import { checkUploadVideoParam } from '@tests/shared/videos.js'
+import { expect } from 'chai'
 
 describe('Test video passwords validator', function () {
   let path: string
@@ -36,7 +37,7 @@ describe('Test video passwords validator', function () {
 
     await setAccessTokensToServers([ server ])
 
-    await server.config.updateCustomSubConfig({
+    await server.config.updateExistingConfig({
       newConfig: {
         live: {
           enabled: true,
@@ -89,7 +90,7 @@ describe('Test video passwords validator', function () {
       licence: 1,
       language: 'pt',
       nsfw: false,
-      commentsEnabled: true,
+      commentsPolicy: VideoCommentPolicy.ENABLED,
       downloadEnabled: true,
       waitTranscoding: true,
       description: 'my super description',
@@ -111,7 +112,7 @@ describe('Test video passwords validator', function () {
 
     if (mode === 'import') {
       const attributes = { ...baseCorrectParams, targetUrl: FIXTURE_URLS.goodVideo, videoPasswords }
-      return server.imports.importVideo({ attributes, expectedStatus })
+      return server.videoImports.importVideo({ attributes, expectedStatus })
     }
 
     if (mode === 'updateVideo') {
@@ -375,7 +376,6 @@ describe('Test video passwords validator', function () {
 
     expect(error.code).to.equal(serverCode)
     expect(error.detail).to.equal(message)
-    expect(error.error).to.equal(message)
 
     expect(error.status).to.equal(HttpStatusCode.FORBIDDEN_403)
   }

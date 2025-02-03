@@ -1,5 +1,5 @@
 import { checkBadCountPagination, checkBadSortPagination, checkBadStartPagination } from '@tests/shared/checks.js'
-import { FIXTURE_URLS } from '@tests/shared/tests.js'
+import { FIXTURE_URLS } from '@tests/shared/fixture-urls.js'
 import { HttpStatusCode, VideoChannelSyncCreate } from '@peertube/peertube-models'
 import {
   ChannelSyncsCommand,
@@ -36,7 +36,7 @@ describe('Test video channel sync API validator', () => {
   async function withMaxSyncsPerUser<T> (maxSync: number, callback: () => Promise<T>): Promise<void> {
     const origConfig = await server.config.getCustomConfig()
 
-    await server.config.updateExistingSubConfig({
+    await server.config.updateExistingConfig({
       newConfig: {
         import: {
           videoChannelSynchronization: {
@@ -139,7 +139,7 @@ describe('Test video channel sync API validator', () => {
       })
     })
 
-    it('Should fail with a channelId refering nothing', async function () {
+    it('Should fail with a channelId referring nothing', async function () {
       const attributes: VideoChannelSyncCreate = {
         ...baseCorrectParams,
         videoChannelId: 42
@@ -285,7 +285,7 @@ describe('Test video channel sync API validator', () => {
       })
     })
 
-    it('should succeed when user delete a sync they own', async function () {
+    it('Should succeed when user delete a sync they own', async function () {
       const { videoChannelSync } = await command.create({
         attributes: {
           externalChannelUrl: FIXTURE_URLS.youtubeChannel,

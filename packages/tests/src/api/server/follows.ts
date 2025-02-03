@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/no-unused-expressions,@typescript-eslint/require-await */
 
-import { expect } from 'chai'
-import { Video, VideoPrivacy } from '@peertube/peertube-models'
-import { cleanupTests, createMultipleServers, PeerTubeServer, setAccessTokensToServers, waitJobs } from '@peertube/peertube-server-commands'
+import { Video, VideoCommentPolicy, VideoPrivacy } from '@peertube/peertube-models'
+import { PeerTubeServer, cleanupTests, createMultipleServers, setAccessTokensToServers, waitJobs } from '@peertube/peertube-server-commands'
 import { expectAccountFollows, expectChannelsFollows } from '@tests/shared/actors.js'
 import { testCaptionFile } from '@tests/shared/captions.js'
 import { dateIsValid } from '@tests/shared/checks.js'
 import { completeVideoCheck } from '@tests/shared/videos.js'
+import { expect } from 'chai'
 
 describe('Test follows', function () {
 
@@ -42,7 +42,7 @@ describe('Test follows', function () {
       })
 
       it('Should have server 1 following root account of server 2 and server 3', async function () {
-        this.timeout(30000)
+        this.timeout(60000)
 
         await servers[0].follows.follow({
           hosts: [ servers[2].url ],
@@ -451,7 +451,6 @@ describe('Test follows', function () {
         expect(video4).to.not.be.undefined
         expect(video6).to.not.be.undefined
 
-        const isLocal = false
         const checkAttributes = {
           name: 'server3-4',
           category: 2,
@@ -464,8 +463,7 @@ describe('Test follows', function () {
             name: 'root',
             host: servers[2].host
           },
-          isLocal,
-          commentsEnabled: true,
+          commentsPolicy: VideoCommentPolicy.ENABLED,
           downloadEnabled: true,
           duration: 5,
           tags: [ 'tag1', 'tag2', 'tag3' ],
@@ -475,13 +473,14 @@ describe('Test follows', function () {
           channel: {
             displayName: 'Main root channel',
             name: 'root_channel',
-            description: '',
-            isLocal
+            description: ''
           },
           fixture: 'video_short.webm',
           files: [
             {
               resolution: 720,
+              width: 1280,
+              height: 720,
               size: 218910
             }
           ]

@@ -1,10 +1,10 @@
 <h1 class="visually-hidden" i18n>Configuration</h1>
 
-<div class="alert alert-warning" *ngIf="!isUpdateAllowed()" i18n>
+<my-alert type="warning" *ngIf="!isUpdateAllowed()" i18n>
   Updating instance configuration from the web interface is disabled by the system administrator.
-</div>
+</my-alert>
 
-<form role="form" [formGroup]="form">
+<form [formGroup]="form">
 
   <div ngbNav #nav="ngbNav" [activeId]="activeNav" (activeIdChange)="onNavChange($event)" class="nav-tabs">
 
@@ -68,7 +68,7 @@
     <div class="col-md-7 col-xl-5"></div>
     <div class="col-md-5 col-xl-5">
 
-      <div class="form-error submit-error" i18n *ngIf="!form.valid && isUpdateAllowed()">
+      <div role="alert" class="form-error submit-error" i18n *ngIf="!form.valid && isUpdateAllowed()">
         There are errors in the form:
 
         <ul>
@@ -78,7 +78,7 @@
         </ul>
       </div>
 
-      <span class="form-error submit-error" i18n *ngIf="!hasLiveAllowReplayConsistentOptions()">
+      <span role="alert" class="form-error submit-error" i18n *ngIf="!hasLiveAllowReplayConsistentOptions()">
         You cannot allow live replay if you don't enable transcoding.
       </span>
 
@@ -87,6 +87,7 @@
       </span>
 
       <input
+        class="peertube-button primary-button"
         (click)="formValidated()" type="submit" i18n-value value="Update configuration"
         [disabled]="!form.valid || !hasConsistentOptions() || !isUpdateAllowed()"
       >

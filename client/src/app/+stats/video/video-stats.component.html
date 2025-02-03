@@ -1,5 +1,9 @@
 <div class="margin-content">
-  <h1 class="title-page" i18n>{{ video.name }}</h1>
+  <h1 class="title-page">
+    <my-global-icon iconName="stats"></my-global-icon>
+
+    <ng-container i18n>{{ video.name }} statistics</ng-container>
+  </h1>
 
   <div class="stats-embed">
     <div class="global-stats">
@@ -20,11 +24,13 @@
   </div>
 
   <div class="stats-with-date">
-    <div class="overall-stats">
-      <div class="date-filter-wrapper">
-        <h2>{{ getViewersStatsTitle() }}</h2>
 
-        <my-select-options [(ngModel)]="currentDateFilter" (ngModelChange)="onDateFilterChange()" [items]="dateFilters"></my-select-options>
+    <div class="overall-stats">
+      <h2>{{ getViewersStatsTitle() }}</h2>
+
+      <div class="date-filter-wrapper">
+        <label class="visually-hidden" for="date-filter">Filter viewers stats by date</label>
+        <my-select-options inputId="date-filter" [(ngModel)]="currentDateFilter" (ngModelChange)="onDateFilterChange()" [items]="dateFilters"></my-select-options>
       </div>
 
       <div class="cards">
@@ -45,7 +51,7 @@
           </a>
 
           <ng-template ngbNavContent>
-            <div class="chart-container" [ngStyle]="{ 'min-height': chartHeight }">
+            <div class="chart-container">
               <p-chart
                 *ngIf="chartOptions[availableChart.id]"
                 [height]="chartHeight" [width]="chartWidth"

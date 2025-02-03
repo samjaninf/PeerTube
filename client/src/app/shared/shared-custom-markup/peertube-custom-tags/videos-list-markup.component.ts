@@ -1,10 +1,13 @@
-import { finalize } from 'rxjs/operators'
+import { NgFor, NgStyle } from '@angular/common'
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, EventEmitter, Input, OnInit, Output } from '@angular/core'
 import { AuthService, Notifier } from '@app/core'
+import { Video } from '@app/shared/shared-main/video/video.model'
+import { CommonVideoParams, VideoService } from '@app/shared/shared-main/video/video.service'
 import { objectKeysTyped } from '@peertube/peertube-core-utils'
-import { VideoSortField } from '@peertube/peertube-models'
-import { Video, VideoService } from '../../shared-main'
-import { MiniatureDisplayOptions } from '../../shared-video-miniature'
+import { ResultList, VideoSortField } from '@peertube/peertube-models'
+import { Observable } from 'rxjs'
+import { finalize, map } from 'rxjs/operators'
+import { MiniatureDisplayOptions, VideoMiniatureComponent } from '../../shared-video-miniature/video-miniature.component'
 import { CustomMarkupComponent } from './shared'
 
 /*
@@ -15,7 +18,9 @@ import { CustomMarkupComponent } from './shared'
   selector: 'my-videos-list-markup',
   templateUrl: 'videos-list-markup.component.html',
   styleUrls: [ 'videos-list-markup.component.scss' ],
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  standalone: true,
+  imports: [ NgStyle, NgFor, VideoMiniatureComponent ]
 })
 export class VideosListMarkupComponent implements CustomMarkupComponent, OnInit {
   @Input() sort: string
@@ -28,6 +33,7 @@ export class VideosListMarkupComponent implements CustomMarkupComponent, OnInit 
   @Input() maxRows: number
   @Input() channelHandle: string
   @Input() accountHandle: string
+  @Input() host: string
 
   @Output() loaded = new EventEmitter<boolean>()
 
@@ -37,7 +43,7 @@ export class VideosListMarkupComponent implements CustomMarkupComponent, OnInit 
     date: false,
     views: true,
     by: true,
-    avatar: false,
+    avatar: true,
     privacyLabel: false,
     privacyText: false,
     state: false,
@@ -75,7 +81,7 @@ export class VideosListMarkupComponent implements CustomMarkupComponent, OnInit 
     return this.getVideosObservable()
       .pipe(finalize(() => this.loaded.emit(true)))
       .subscribe({
-        next: ({ data }) => {
+        next: data => {
           this.videos = data
           this.cd.markForCheck()
         },
@@ -85,23 +91,38 @@ export class VideosListMarkupComponent implements CustomMarkupComponent, OnInit 
   }
 
   getVideosObservable () {
-    const options = {
+    const options: CommonVideoParams = {
       videoPagination: {
         currentPage: 1,
         itemsPerPage: this.count
       },
       categoryOneOf: this.categoryOneOf,
       languageOneOf: this.languageOneOf,
+      host: this.host,
       isLocal: this.isLocal,
       isLive: this.isLive,
       sort: this.sort as VideoSortField,
-      account: { nameWithHost: this.accountHandle },
-      videoChannel: { nameWithHost: this.channelHandle }
+      skipCount: true
     }
 
-    if (this.channelHandle) return this.videoService.getVideoChannelVideos(options)
-    if (this.accountHandle) return this.videoService.getAccountVideos(options)
+    let obs: Observable<ResultList<Video>>
 
-    return this.videoService.getVideos(options)
+    if (this.channelHandle) {
+      obs = this.videoService.getVideoChannelVideos({
+        ...options,
+
+        videoChannel: { nameWithHost: this.channelHandle }
+      })
+    } else if (this.accountHandle) {
+      obs = this.videoService.getAccountVideos({
+        ...options,
+
+        account: { nameWithHost: this.accountHandle }
+      })
+    } else {
+      obs = this.videoService.getVideos(options)
+    }
+
+    return obs.pipe(map(({ data }) => data))
   }
 }

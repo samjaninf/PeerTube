@@ -1,12 +1,13 @@
-import { Observable } from 'rxjs'
-import { catchError, switchMap } from 'rxjs/operators'
 import { HttpClient, HttpParams } from '@angular/common/http'
 import { Injectable } from '@angular/core'
 import { RestExtractor, RestPagination, RestService } from '@app/core'
-import { AdvancedInputFilter } from '@app/shared/shared-forms'
-import { CommonVideoParams, Video, VideoService } from '@app/shared/shared-main'
+import { AdvancedInputFilter } from '@app/shared/shared-forms/advanced-input-filter.component'
+import { Video } from '@app/shared/shared-main/video/video.model'
+import { CommonVideoParams, VideoService } from '@app/shared/shared-main/video/video.service'
+import { getAllPrivacies, omit } from '@peertube/peertube-core-utils'
 import { ResultList, VideoInclude, VideoPrivacy } from '@peertube/peertube-models'
-import { getAllPrivacies } from '@peertube/peertube-core-utils'
+import { Observable } from 'rxjs'
+import { catchError, switchMap } from 'rxjs/operators'
 
 @Injectable()
 export class VideoAdminService {
@@ -24,7 +25,7 @@ export class VideoAdminService {
     const { pagination, search } = options
 
     let params = new HttpParams()
-    params = this.videoService.buildCommonVideosParams({ params, ...options })
+    params = this.videoService.buildCommonVideosParams({ params, ...omit(options, [ 'search', 'pagination' ]) })
 
     params = params.set('start', pagination.start.toString())
                    .set('count', pagination.count.toString())
@@ -111,7 +112,9 @@ export class VideoAdminService {
     let include = VideoInclude.BLACKLISTED |
       VideoInclude.BLOCKED_OWNER |
       VideoInclude.NOT_PUBLISHED_STATE |
-      VideoInclude.FILES
+      VideoInclude.FILES |
+      VideoInclude.SOURCE |
+      VideoInclude.AUTOMATIC_TAGS
 
     let privacyOneOf = getAllPrivacies()
 
@@ -141,6 +144,10 @@ export class VideoAdminService {
       excludePublic: {
         prefix: 'excludePublic',
         handler: () => true
+      },
+      autoTagOneOf: {
+        prefix: 'autoTag:',
+        multiple: true
       }
     })
 

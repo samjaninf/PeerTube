@@ -41,7 +41,7 @@
     "  off": "  вимк",
     "Player mode": "Player mode",
     "Play in loop": "Відтворювати в циклі",
-    "This live has not started yet.": "Цю трансляцію ще не розпочато.",
+    "This live is not currently streaming.": "Цей прямий ефір наразі не транслюється.",
     "This live has ended.": "Цю трансляцію завершено.",
     "The video failed to play, will try to fast forward.": "Відео не відтворюється, спробуємо перемотати вперед.",
     "{1} / {2} dropped of {3}": "{1} / {2} пропущено з {3}",
@@ -56,6 +56,12 @@
     "Cancel": "Скасувати",
     "Up Next": "Up Next",
     "Autoplay is suspended": "Автовідтворення призупинено",
+    "{1} (from edge: {2})": "{1} (з краю: {2})",
+    "Disable subtitles": "Вимкнути субтитри",
+    "Enable {1} subtitle": "Увімкнути субтитри {1}",
+    "{1} (auto-generated)": "{1} (згенеровано автоматично)",
+    "Go back": "Повернутися",
+    "Audio only": "Лише аудіо",
     "Audio Player": "Аудіопрогравач",
     "Video Player": "Відеопрогравач",
     "Play": "Відтворити",
@@ -139,5 +145,6 @@
     "Beginning of dialog window. Escape will cancel and close the window.": "Початок діалогового вікна. Клавіша Esc скасує дію і закриє вікно.",
     "End of dialog window.": "Кінець діалогового вікна.",
     "{1} is loading.": "{1} завантажується.",
+    "This live has not started yet.": "Цю трансляцію ще не розпочато.",
     "Uses P2P, others may know you are watching this video.": "Використовує P2P, інші користувачі можуть дізнатися, що ви дивитесь це відео."
 }

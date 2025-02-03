@@ -1,5 +1,3 @@
-version: "3.3"
-
 services:
 
   # You can comment this webserver section if you want to use another webserver/proxy or test PeerTube in local
@@ -8,7 +6,7 @@ services:
     # If you don't want to use the official image and build one from sources:
     # build:
     #   context: .
-    #   dockerfile: Dockerfile.nginx
+    #   dockerfile: ./support/docker/production/Dockerfile.nginx
     env_file:
       - .env
     ports:
@@ -51,6 +49,7 @@ services:
     networks:
       default:
         ipv4_address: 172.18.0.42
+        ipv6_address: fdab:e4b3:21a2:ef1b::42
     env_file:
       - .env
 
@@ -58,6 +57,7 @@ services:
      - "1935:1935" # Comment if you don't want to use the live feature
     #  - "9000:9000" # Uncomment if you use another webserver/proxy or test PeerTube in local, otherwise not suitable for production
     volumes:
+      # Remove the following line if you want to use another webserver/proxy or test PeerTube in local
       - assets:/app/client/dist
       - ./docker-volume/data:/data
       - ./docker-volume/config:/config
@@ -91,10 +91,12 @@ services:
 
 networks:
   default:
+    enable_ipv6: true
     ipam:
       driver: default
       config:
       - subnet: 172.18.0.0/16
+      - subnet: fdab:e4b3:21a2:ef1b::/64
 
 volumes:
   assets:

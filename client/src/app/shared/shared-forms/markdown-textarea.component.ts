@@ -1,11 +1,13 @@
-import { Subject } from 'rxjs'
-import { debounceTime, distinctUntilChanged } from 'rxjs/operators'
-import { ViewportScroller } from '@angular/common'
-import { Component, ElementRef, forwardRef, Input, OnInit, ViewChild } from '@angular/core'
-import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms'
+import { NgClass, NgIf, ViewportScroller } from '@angular/common'
+import { booleanAttribute, Component, ElementRef, forwardRef, Input, OnDestroy, OnInit, ViewChild } from '@angular/core'
+import { ControlValueAccessor, FormsModule, NG_VALUE_ACCESSOR } from '@angular/forms'
 import { SafeHtml } from '@angular/platform-browser'
 import { MarkdownService, ScreenService } from '@app/core'
+import { NgbNav, NgbNavContent, NgbNavItem, NgbNavLink, NgbNavLinkBase, NgbNavOutlet, NgbTooltip } from '@ng-bootstrap/ng-bootstrap'
 import { Video } from '@peertube/peertube-models'
+import { Subject } from 'rxjs'
+import { debounceTime, distinctUntilChanged } from 'rxjs/operators'
+import { GlobalIconComponent } from '../shared-icons/global-icon.component'
 import { FormReactiveErrors } from './form-reactive.service'
 
 @Component({
@@ -18,15 +20,29 @@ import { FormReactiveErrors } from './form-reactive.service'
       useExisting: forwardRef(() => MarkdownTextareaComponent),
       multi: true
     }
+  ],
+  standalone: true,
+  imports: [
+    NgClass,
+    FormsModule,
+    NgbNav,
+    NgIf,
+    NgbNavItem,
+    NgbNavLink,
+    NgbNavLinkBase,
+    NgbNavContent,
+    GlobalIconComponent,
+    NgbTooltip,
+    NgbNavOutlet
   ]
 })
 
-export class MarkdownTextareaComponent implements ControlValueAccessor, OnInit {
+export class MarkdownTextareaComponent implements ControlValueAccessor, OnInit, OnDestroy {
   @Input() content = ''
 
   @Input() formError: string | FormReactiveErrors | FormReactiveErrors[]
 
-  @Input() truncateTo3Lines: boolean
+  @Input({ transform: booleanAttribute }) truncateTo3Lines: boolean
 
   @Input() markdownType: 'text' | 'enhanced' | 'to-unsafe-html' = 'text'
   @Input() customMarkdownRenderer?: (text: string) => Promise<string | HTMLElement>
@@ -35,9 +51,12 @@ export class MarkdownTextareaComponent implements ControlValueAccessor, OnInit {
 
   @Input() markdownVideo: Video
 
-  @Input() name = 'description'
+  @Input({ required: true }) inputId: string
 
   @Input() dir: string
+
+  @Input({ transform: booleanAttribute }) withHtml = false
+  @Input({ transform: booleanAttribute }) withEmoji = false
 
   @ViewChild('textarea') textareaElement: ElementRef
   @ViewChild('previewElement') previewElement: ElementRef
@@ -68,6 +87,10 @@ export class MarkdownTextareaComponent implements ControlValueAccessor, OnInit {
         .subscribe(() => this.updatePreviews())
 
     this.contentChanged.next(this.content)
+  }
+
+  ngOnDestroy () {
+    this.unlockBodyScroll()
   }
 
   propagateChange = (_: any) => { /* empty */ }
@@ -122,7 +145,10 @@ export class MarkdownTextareaComponent implements ControlValueAccessor, OnInit {
 
   private unlockBodyScroll () {
     document.getElementById('content').classList.remove('lock-scroll')
-    this.viewportScroller.scrollToPosition(this.scrollPosition)
+
+    if (this.scrollPosition) {
+      this.viewportScroller.scrollToPosition(this.scrollPosition)
+    }
   }
 
   private async updatePreviews () {
@@ -146,9 +172,9 @@ export class MarkdownTextareaComponent implements ControlValueAccessor, OnInit {
 
       html = result
     } else if (this.markdownType === 'text') {
-      html = await this.markdownService.textMarkdownToHTML({ markdown: text })
+      html = await this.markdownService.textMarkdownToHTML({ markdown: text, withEmoji: this.withEmoji, withHtml: this.withHtml })
     } else if (this.markdownType === 'enhanced') {
-      html = await this.markdownService.enhancedMarkdownToHTML({ markdown: text })
+      html = await this.markdownService.enhancedMarkdownToHTML({ markdown: text, withEmoji: this.withEmoji, withHtml: this.withHtml })
     } else if (this.markdownType === 'to-unsafe-html') {
       html = await this.markdownService.markdownToUnsafeHTML({ markdown: text })
     }

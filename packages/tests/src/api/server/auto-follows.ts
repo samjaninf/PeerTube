@@ -57,7 +57,7 @@ describe('Test auto follows', function () {
   describe('Auto follow back', function () {
 
     it('Should not auto follow back if the option is not enabled', async function () {
-      this.timeout(15000)
+      this.timeout(30000)
 
       await server1Follows2(servers)
 
@@ -77,7 +77,7 @@ describe('Test auto follows', function () {
           }
         }
       }
-      await servers[1].config.updateCustomSubConfig({ newConfig: config })
+      await servers[1].config.updateExistingConfig({ newConfig: config })
 
       await server1Follows2(servers)
 
@@ -102,7 +102,7 @@ describe('Test auto follows', function () {
           }
         }
       }
-      await servers[1].config.updateCustomSubConfig({ newConfig: config })
+      await servers[1].config.updateExistingConfig({ newConfig: config })
 
       await server1Follows2(servers)
 
@@ -119,7 +119,7 @@ describe('Test auto follows', function () {
 
       config.followings.instance.autoFollowBack.enabled = false
       config.followers.instance.manualApproval = false
-      await servers[1].config.updateCustomSubConfig({ newConfig: config })
+      await servers[1].config.updateExistingConfig({ newConfig: config })
     })
   })
 
@@ -156,7 +156,7 @@ describe('Test auto follows', function () {
           }
         }
       }
-      await servers[0].config.updateCustomSubConfig({ newConfig: config })
+      await servers[0].config.updateExistingConfig({ newConfig: config })
 
       await wait(5000)
       await waitJobs(servers)

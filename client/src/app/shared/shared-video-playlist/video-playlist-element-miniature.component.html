@@ -8,7 +8,7 @@
     <my-video-thumbnail
       *ngIf="playlistElement.video"
       [video]="playlistElement.video" [nsfw]="isVideoBlur(playlistElement.video)"
-      [videoRouterLink]="buildRouterLink()" [queryParams]="buildRouterQuery()"
+      [videoRouterLink]="buildRouterLink()" [queryParams]="buildRouterQuery()" [ariaLabel]="getVideoAriaLabel()"
     ></my-video-thumbnail>
 
     <div class="fake-thumbnail" *ngIf="!playlistElement.video"></div>
@@ -16,20 +16,20 @@
     <div class="video-info">
       <ng-container *ngIf="playlistElement.video">
         <div class="video-info-header">
-          <a tabindex="-1" class="video-info-name"
+          <a
+            tabindex="-1" class="video-info-name" [ariaLabel]="getVideoAriaLabel()" [attr.title]="playlistElement.video.name"
             [routerLink]="buildRouterLink()" [queryParams]="buildRouterQuery()"
-            [attr.title]="playlistElement.video.name"
           >{{ playlistElement.video.name }}</a>
 
           <span i18n *ngIf="isVideoPrivate()" class="pt-badge badge-yellow">Private</span>
           <span i18n *ngIf="isVideoPasswordProtected()" class="pt-badge badge-yellow">Password protected</span>
         </div>
 
-        <span class="video-miniature-created-at-views">
+        <span class="date-and-views">
           <my-date-toggle [date]="playlistElement.video.publishedAt"></my-date-toggle>
 
-          <span class="views" [title]="playlistElement.video.getExactNumberOfViews()">
-            • <my-video-views-counter [video]="playlistElement.video"></my-video-views-counter>
+          <span class="views">
+            • <my-video-views-counter [isLive]="playlistElement.video.isLive" [viewers]="playlistElement.video.viewers" [views]="playlistElement.video.views"></my-video-views-counter>
           </span>
         </span>
 
@@ -51,12 +51,13 @@
     </div>
   </a>
 
-  <my-edit-button *ngIf="owned && touchScreenEditButton" [ptRouterLink]="[ '/my-library', 'video-playlists', playlist.uuid ]"></my-edit-button>
-
-  <div *ngIf="owned" class="more dropdown-root" ngbDropdown #moreDropdown="ngbDropdown" placement="left auto"
-       (openChange)="onDropdownOpenChange()" autoClose="outside" container="body"
+  <div
+    *ngIf="owned" class="more dropdown-root" ngbDropdown #moreDropdown="ngbDropdown" placement="left auto"
+    (openChange)="onDropdownOpenChange()" autoClose="outside" container="body"
   >
-    <my-global-icon iconName="more-vertical" ngbDropdownToggle role="button" class="icon-more" (click)="$event.preventDefault()"></my-global-icon>
+    <button class="border-0 p-0 more-button" (click)="$event.preventDefault()" ngbDropdownToggle>
+      <my-global-icon iconName="more-vertical"></my-global-icon>
+    </button>
 
     <div ngbDropdownMenu>
       <ng-container *ngIf="playlistElement.video">
@@ -94,7 +95,7 @@
             ></my-timestamp-input>
           </div>
 
-          <input type="submit" i18n-value value="Save" (click)="updateTimestamps(playlistElement)">
+          <input class="peertube-button primary-button mt-2" type="submit" i18n-value value="Save" (click)="updateTimestamps(playlistElement)">
         </div>
       </ng-container>
 

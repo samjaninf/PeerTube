@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-expressions,@typescript-eslint/require-await */
 
 import { VideoChapter, VideoCreateResult, VideoPrivacy } from '@peertube/peertube-models'
-import { areHttpImportTestsDisabled } from '@peertube/peertube-node-utils'
+import { areHttpImportTestsDisabled, areYoutubeImportTestsDisabled } from '@peertube/peertube-node-utils'
 import {
   cleanupTests,
   createMultipleServers,
@@ -9,7 +9,7 @@ import {
   setDefaultVideoChannel,
   waitJobs
 } from '@peertube/peertube-server-commands'
-import { FIXTURE_URLS } from '@tests/shared/tests.js'
+import { FIXTURE_URLS } from '@tests/shared/fixture-urls.js'
 import { expect } from 'chai'
 
 describe('Test video chapters', function () {
@@ -178,13 +178,13 @@ describe('Test video chapters', function () {
         checkChapters(chapters)
       }
 
-      await servers[0].videos.update({ id: video.uuid, attributes: { description: '00:01 chapter 1' } })
+      await servers[0].videos.update({ id: video.uuid, attributes: { description: '00:01 chapter 1\n00:03 chapter 2' } })
       await waitJobs(servers)
 
       for (const server of servers) {
         const { chapters } = await server.chapters.list({ videoId: video.uuid })
 
-        expect(chapters).to.deep.equal([ { timecode: 1, title: 'chapter 1' } ])
+        expect(chapters).to.deep.equal([ { timecode: 1, title: 'chapter 1' }, { timecode: 3, title: 'chapter 2' } ])
       }
 
       await servers[0].videos.update({ id: video.uuid, attributes: { description: 'null description' } })
@@ -229,6 +229,8 @@ describe('Test video chapters', function () {
     if (areHttpImportTestsDisabled()) return
 
     it('Should detect chapters from youtube URL import', async function () {
+      if (areYoutubeImportTestsDisabled()) return
+
       this.timeout(120000)
 
       const attributes = {
@@ -237,7 +239,7 @@ describe('Test video chapters', function () {
         targetUrl: FIXTURE_URLS.youtubeChapters,
         description: 'this is a super description\n'
       }
-      const { video } = await servers[0].imports.importVideo({ attributes })
+      const { video } = await servers[0].videoImports.importVideo({ attributes })
 
       await waitJobs(servers)
 
@@ -266,6 +268,8 @@ describe('Test video chapters', function () {
     })
 
     it('Should have overriden description priority from youtube URL import', async function () {
+      if (areYoutubeImportTestsDisabled()) return
+
       this.timeout(120000)
 
       const attributes = {
@@ -277,7 +281,7 @@ describe('Test video chapters', function () {
           '00:03 chapter 2\n' +
           '00:04 chapter 3\n'
       }
-      const { video } = await servers[0].imports.importVideo({ attributes })
+      const { video } = await servers[0].videoImports.importVideo({ attributes })
 
       await waitJobs(servers)
 
@@ -309,7 +313,7 @@ describe('Test video chapters', function () {
         privacy: VideoPrivacy.PUBLIC,
         targetUrl: FIXTURE_URLS.chatersVideo
       }
-      const { video } = await servers[0].imports.importVideo({ attributes })
+      const { video } = await servers[0].videoImports.importVideo({ attributes })
 
       await waitJobs(servers)
 

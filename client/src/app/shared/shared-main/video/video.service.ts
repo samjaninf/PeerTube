@@ -1,6 +1,3 @@
-import { SortMeta } from 'primeng/api'
-import { from, Observable, of, throwError } from 'rxjs'
-import { catchError, concatMap, map, switchMap, toArray } from 'rxjs/operators'
 import { HttpClient, HttpParams, HttpRequest } from '@angular/common/http'
 import { Injectable } from '@angular/core'
 import { AuthService, ComponentPaginationLight, ConfirmService, RestExtractor, RestService, ServerService, UserService } from '@app/core'
@@ -16,23 +13,28 @@ import {
   UserVideoRate,
   UserVideoRateType,
   UserVideoRateUpdate,
-  Video as VideoServerModel,
   VideoChannel as VideoChannelServerModel,
   VideoConstant,
   VideoDetails as VideoDetailsServerModel,
+  VideoFile,
   VideoFileMetadata,
   VideoIncludeType,
   VideoPrivacy,
   VideoPrivacyType,
+  Video as VideoServerModel,
   VideoSortField,
   VideoSource,
   VideoTranscodingCreate,
   VideoUpdate
 } from '@peertube/peertube-models'
+import { SortMeta } from 'primeng/api'
+import { from, Observable, of, throwError } from 'rxjs'
+import { catchError, concatMap, map, switchMap, toArray } from 'rxjs/operators'
 import { environment } from '../../../../environments/environment'
 import { Account } from '../account/account.model'
 import { AccountService } from '../account/account.service'
-import { VideoChannel, VideoChannelService } from '../video-channel'
+import { VideoChannel } from '../channel/video-channel.model'
+import { VideoChannelService } from '../channel/video-channel.service'
 import { VideoDetails } from './video-details.model'
 import { VideoEdit } from './video-edit.model'
 import { VideoPasswordService } from './video-password.service'
@@ -49,10 +51,13 @@ export type CommonVideoParams = {
   isLive?: boolean
   skipCount?: boolean
   nsfw?: BooleanBothQuery
+  host?: string
+  search?: string
 }
 
 @Injectable()
 export class VideoService {
+  static BASE_VIDEO_DOWNLOAD_URL = environment.originServerUrl + '/download/videos/generate'
   static BASE_VIDEO_URL = environment.apiUrl + '/api/v1/videos'
   static BASE_FEEDS_URL = environment.apiUrl + '/feeds/videos.'
   static PODCAST_FEEDS_URL = environment.apiUrl + '/feeds/podcast/videos.xml'
@@ -108,7 +113,7 @@ export class VideoService {
       tags: video.tags,
       nsfw: video.nsfw,
       waitTranscoding: video.waitTranscoding,
-      commentsEnabled: video.commentsEnabled,
+      commentsPolicy: video.commentsPolicy,
       downloadEnabled: video.downloadEnabled,
       thumbnailfile: video.thumbnailfile,
       previewfile: video.previewfile,
@@ -175,14 +180,11 @@ export class VideoService {
 
   getAccountVideos (parameters: CommonVideoParams & {
     account: Pick<Account, 'nameWithHost'>
-    search?: string
   }): Observable<ResultList<Video>> {
-    const { account, search } = parameters
+    const { account } = parameters
 
     let params = new HttpParams()
     params = this.buildCommonVideosParams({ params, ...parameters })
-
-    if (search) params = params.set('search', search)
 
     return this.authHttp
                .get<ResultList<Video>>(AccountService.BASE_ACCOUNT_URL + account.nameWithHost + '/videos', { params })
@@ -325,28 +327,28 @@ export class VideoService {
       .pipe(catchError(err => this.restExtractor.handleError(err)))
   }
 
+  removeSourceFile (videoId: number | string) {
+    return this.authHttp.delete(VideoService.BASE_VIDEO_URL + '/' + videoId + '/source/file')
+      .pipe(catchError(err => this.restExtractor.handleError(err)))
+  }
+
   runTranscoding (options: {
-    videoIds: (number | string)[]
+    videos: Video[]
     type: 'hls' | 'web-video'
-    askForForceTranscodingIfNeeded: boolean
     forceTranscoding?: boolean
   }): Observable<any> {
-    const { videoIds, type, askForForceTranscodingIfNeeded, forceTranscoding } = options
-
-    if (askForForceTranscodingIfNeeded && videoIds.length !== 1) {
-      throw new Error('Cannot ask to force transcoding on multiple videos')
-    }
+    const { videos, type, forceTranscoding } = options
 
     const body: VideoTranscodingCreate = { transcodingType: type, forceTranscoding }
 
-    return from(videoIds)
+    return from(videos)
       .pipe(
-        concatMap(id => {
-          return this.authHttp.post(VideoService.BASE_VIDEO_URL + '/' + id + '/transcoding', body)
+        concatMap(video => {
+          return this.authHttp.post(VideoService.BASE_VIDEO_URL + '/' + video.uuid + '/transcoding', body)
             .pipe(
               catchError(err => {
-                if (askForForceTranscodingIfNeeded && err.error?.code === ServerErrorCode.VIDEO_ALREADY_BEING_TRANSCODED) {
-                  const message = $localize`PeerTube considers this video is already being transcoded.` +
+                if (err.error?.code === ServerErrorCode.VIDEO_ALREADY_BEING_TRANSCODED && !forceTranscoding) {
+                  const message = $localize`PeerTube considers video "${video.name}" is already being transcoded.` +
                     // eslint-disable-next-line max-len
                     $localize` If you think PeerTube is wrong (video in broken state after a crash etc.), you can force transcoding on this video.` +
                     ` Do you still want to run transcoding?`
@@ -356,7 +358,11 @@ export class VideoService {
                       switchMap(res => {
                         if (res === false) return throwError(() => err)
 
-                        return this.runTranscoding({ videoIds, type, askForForceTranscodingIfNeeded: false, forceTranscoding: true })
+                        return this.runTranscoding({
+                          videos: [ video ],
+                          type,
+                          forceTranscoding: true
+                        })
                       })
                     )
                 }
@@ -372,13 +378,21 @@ export class VideoService {
 
   // ---------------------------------------------------------------------------
 
-  loadCompleteDescription (descriptionPath: string) {
-    return this.authHttp
-               .get<{ description: string }>(environment.apiUrl + descriptionPath)
-               .pipe(
-                 map(res => res.description),
-                 catchError(err => this.restExtractor.handleError(err))
-               )
+  generateDownloadUrl (options: {
+    video: Video
+    files: VideoFile[]
+    videoFileToken?: string
+  }) {
+    const { video, files, videoFileToken } = options
+
+    if (files.length === 0) throw new Error('Cannot generate download URL without files')
+
+    let url = `${VideoService.BASE_VIDEO_DOWNLOAD_URL}/${video.uuid}?`
+    url += files.map(f => 'videoFileIds=' + f.id).join('&')
+
+    if (videoFileToken) url += `&videoFileToken=${videoFileToken}`
+
+    return url
   }
 
   // ---------------------------------------------------------------------------
@@ -395,7 +409,7 @@ export class VideoService {
             return of([])
           }
 
-          this.restExtractor.handleError(err)
+          return this.restExtractor.handleError(err)
         })
       )
   }
@@ -404,14 +418,14 @@ export class VideoService {
 
   getSource (videoId: number) {
     return this.authHttp
-               .get<{ source: VideoSource }>(VideoService.BASE_VIDEO_URL + '/' + videoId + '/source')
+               .get<VideoSource>(VideoService.BASE_VIDEO_URL + '/' + videoId + '/source')
                .pipe(
                  catchError(err => {
                    if (err.status === 404) {
                      return of(undefined)
                    }
 
-                   this.restExtractor.handleError(err)
+                   return this.restExtractor.handleError(err)
                  })
                )
   }
@@ -533,7 +547,11 @@ export class VideoService {
       privacyOneOf,
       skipCount,
       isLive,
-      nsfw
+      nsfw,
+      search,
+      host,
+
+      ...otherOptions
     } = options
 
     const pagination = videoPagination
@@ -551,6 +569,10 @@ export class VideoService {
     if (languageOneOf !== undefined) newParams = this.restService.addArrayParams(newParams, 'languageOneOf', languageOneOf)
     if (categoryOneOf !== undefined) newParams = this.restService.addArrayParams(newParams, 'categoryOneOf', categoryOneOf)
     if (privacyOneOf !== undefined) newParams = this.restService.addArrayParams(newParams, 'privacyOneOf', privacyOneOf)
+    if (search) newParams = newParams.set('search', search)
+    if (host) newParams = newParams.set('host', host)
+
+    newParams = this.restService.addObjectParams(newParams, otherOptions)
 
     return newParams
   }

@@ -1,8 +1,8 @@
+import { addQueryParams, getResolutionAndFPSLabel } from '@peertube/peertube-core-utils'
+import { VideoFile } from '@peertube/peertube-models'
+import { logger } from '@root-helpers/logger'
 import debug from 'debug'
 import videojs from 'video.js'
-import { logger } from '@root-helpers/logger'
-import { addQueryParams } from '@peertube/peertube-core-utils'
-import { VideoFile } from '@peertube/peertube-models'
 import { PeerTubeResolution, PlayerNetworkInfo, WebVideoPluginOptions } from '../../types'
 
 const debugLogger = debug('peertube:player:web-video-plugin')
@@ -10,16 +10,16 @@ const debugLogger = debug('peertube:player:web-video-plugin')
 const Plugin = videojs.getPlugin('plugin')
 
 class WebVideoPlugin extends Plugin {
-  private readonly videoFiles: VideoFile[]
+  declare private readonly videoFiles: VideoFile[]
 
-  private currentVideoFile: VideoFile
-  private videoFileToken: () => string
+  declare private currentVideoFile: VideoFile
+  declare private videoFileToken: () => string
 
-  private networkInfoInterval: any
+  declare private networkInfoInterval: any
 
-  private onErrorHandler: () => void
-  private onPlayHandler: () => void
-  private onLoadedMetadata: () => void
+  declare private onErrorHandler: () => void
+  declare private onPlayHandler: () => void
+  declare private onLoadedMetadata: () => void
 
   constructor (player: videojs.Player, options?: WebVideoPluginOptions) {
     super(player, options)
@@ -27,7 +27,8 @@ class WebVideoPlugin extends Plugin {
     this.videoFiles = options.videoFiles
     this.videoFileToken = options.videoFileToken
 
-    this.updateVideoFile({ videoFile: this.pickAverageVideoFile(), isUserResolutionChange: false })
+    const videoFile = this.pickAverageVideoFile()
+    if (videoFile) this.updateVideoFile({ videoFile, isUserResolutionChange: false })
 
     this.onLoadedMetadata = () => {
       player.trigger('video-ratio-changed', { ratio: this.player.videoWidth() / this.player.videoHeight() })
@@ -36,19 +37,19 @@ class WebVideoPlugin extends Plugin {
     player.on('loadedmetadata', this.onLoadedMetadata)
 
     player.ready(() => {
-      this.buildQualities()
-
-      this.setupNetworkInfoInterval()
-
       if (this.videoFiles.length === 0) {
         this.player.addClass('disabled')
         return
       }
+
+      this.buildQualities()
+
+      this.setupNetworkInfoInterval()
     })
   }
 
   dispose () {
-    clearInterval(this.networkInfoInterval)
+    if (this.networkInfoInterval) clearInterval(this.networkInfoInterval)
 
     if (this.onLoadedMetadata) this.player.off('loadedmetadata', this.onLoadedMetadata)
     if (this.onErrorHandler) this.player.off('error', this.onErrorHandler)
@@ -58,7 +59,7 @@ class WebVideoPlugin extends Plugin {
   }
 
   getCurrentResolutionId () {
-    return this.currentVideoFile.resolution.id
+    return this.currentVideoFile?.resolution.id
   }
 
   updateVideoFile (options: {
@@ -86,9 +87,6 @@ class WebVideoPlugin extends Plugin {
 
     const oldAutoplayValue = this.player.autoplay()
     if (options.isUserResolutionChange) {
-      // Prevent video source element displaying the poster when we change the resolution
-      (this.player.el() as HTMLVideoElement).poster = ''
-
       this.player.autoplay(false)
       this.player.addClass('vjs-updating-resolution')
     }
@@ -99,10 +97,12 @@ class WebVideoPlugin extends Plugin {
       this.player.playbackRate(playbackRate)
       this.player.currentTime(currentTime)
 
-      this.adaptPosterForAudioOnly()
+      this.player.trigger('resolution-change', {
+        resolution: this.currentVideoFile?.resolution.id,
+        initResolutionChange: !options.isUserResolutionChange
+      })
 
       if (options.isUserResolutionChange) {
-        this.player.trigger('user-resolution-change')
         this.player.trigger('web-video-source-change')
 
         this.tryToPlay()
@@ -119,15 +119,6 @@ class WebVideoPlugin extends Plugin {
 
   getCurrentVideoFile () {
     return this.currentVideoFile
-  }
-
-  private adaptPosterForAudioOnly () {
-    // Audio-only (resolutionId === 0) gets special treatment
-    if (this.currentVideoFile.resolution.id === 0) {
-      this.player.audioPosterMode(true)
-    } else {
-      this.player.audioPosterMode(false)
-    }
   }
 
   private tryToPlay () {
@@ -154,6 +145,7 @@ class WebVideoPlugin extends Plugin {
   }
 
   private pickAverageVideoFile () {
+    if (!this.videoFiles || this.videoFiles.length === 0) return undefined
     if (this.videoFiles.length === 1) return this.videoFiles[0]
 
     const files = this.videoFiles.filter(f => f.resolution.id !== 0)
@@ -163,23 +155,13 @@ class WebVideoPlugin extends Plugin {
   private buildQualities () {
     const resolutions: PeerTubeResolution[] = this.videoFiles.map(videoFile => ({
       id: videoFile.resolution.id,
-      label: this.buildQualityLabel(videoFile),
+      label: this.player.localize(getResolutionAndFPSLabel(videoFile.resolution.label, videoFile.fps)),
       height: videoFile.resolution.id,
-      selected: videoFile.id === this.currentVideoFile.id,
+      selected: videoFile.id === this.currentVideoFile?.id,
       selectCallback: () => this.updateVideoFile({ videoFile, isUserResolutionChange: true })
     }))
 
     this.player.peertubeResolutions().add(resolutions)
-  }
-
-  private buildQualityLabel (file: VideoFile) {
-    let label = file.resolution.label
-
-    if (file.fps && file.fps >= 50) {
-      label += file.fps
-    }
-
-    return label
   }
 
   private setupNetworkInfoInterval () {
@@ -187,7 +169,7 @@ class WebVideoPlugin extends Plugin {
       return this.player.trigger('network-info', {
         source: 'web-video',
         http: {
-          downloaded: this.player.bufferedPercent() * this.currentVideoFile.size
+          downloaded: this.player.bufferedPercent() * this.currentVideoFile?.size
         }
       } as PlayerNetworkInfo)
     }, 1000)

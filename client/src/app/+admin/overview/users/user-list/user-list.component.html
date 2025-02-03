@@ -1,8 +1,3 @@
-<h1>
-  <my-global-icon iconName="user" aria-hidden="true"></my-global-icon>
-  <ng-container i18n>Users</ng-container>
-</h1>
-
 <p-table
   [value]="users" [paginator]="totalRecords > 0" [totalRecords]="totalRecords" [rows]="rowsPerPage" [first]="pagination.start"
   [rowsPerPageOptions]="rowsPerPageOptions" [sortField]="sort.field" [sortOrder]="sort.order" dataKey="id" [resizableColumns]="true"
@@ -13,12 +8,12 @@
     <div class="caption">
       <div class="left-buttons">
         <my-action-dropdown
-          *ngIf="isInSelectionMode()" i18n-label label="Batch actions" theme="orange"
+          *ngIf="isInSelectionMode()" i18n-label label="Batch actions" theme="primary"
           [actions]="bulkActions" [entry]="selectedRows"
         >
         </my-action-dropdown>
 
-        <a *ngIf="!isInSelectionMode()" class="peertube-create-button" routerLink="/admin/users/create">
+        <a *ngIf="!isInSelectionMode()" class="peertube-create-button" routerLink="/admin/overview/users/create">
           <my-global-icon iconName="user-add" aria-hidden="true"></my-global-icon>
           <ng-container i18n>Create user</ng-container>
         </a>
@@ -33,40 +28,51 @@
 
   <ng-template pTemplate="header">
     <tr>
-      <th style="width: 40px">
+      <th scope="col" style="width: 40px">
         <p-tableHeaderCheckbox ariaLabel="Select all rows" i18n-ariaLabel></p-tableHeaderCheckbox>
       </th>
-      <th style="width: 40px"></th>
-      <th style="width: 70px;">
-        <div class="c-hand column-toggle" ngbDropdown placement="bottom-left auto" container="body" autoClose="outside">
-          <my-global-icon iconName="columns" ngbDropdownToggle></my-global-icon>
 
-          <div role="menu" class="dropdown-menu" ngbDropdownMenu>
-            <div class="dropdown-header" i18n>Table parameters</div>
-            <div ngbDropdownItem class="dropdown-item">
+      <th scope="col" style="width: 40px;">
+        <span i18n class="visually-hidden">More information</span>
+      </th>
+
+      <th scope="col" style="width: 70px;">
+        <div class="c-hand column-toggle" ngbDropdown placement="bottom-left auto" container="body" autoClose="outside">
+          <button type="button" class="border-0 p-0" ngbDropdownToggle i18n-title title="Open table configuration">
+            <my-global-icon iconName="columns"></my-global-icon>
+          </button>
+
+          <div ngbDropdownMenu class="p-3">
+            <div class="form-group">
+              <label i18n for="select-columns">Select the columns to display</label>
+
               <my-select-checkbox
-                name="columns"
+                inputId="select-columns"
                 [availableItems]="columns"
                 [selectableGroup]="false" [(ngModel)]="selectedColumns"
-                i18n-placeholder placeholder="Select columns"
+                i18n-placeholder placeholder="Select the columns to display"
               >
               </my-select-checkbox>
             </div>
-            <div ngbDropdownItem class="dropdown-item">
-              <my-peertube-checkbox inputName="highlightBannedUsers" [(ngModel)]="highlightBannedUsers"
-                i18n-labelText labelText="Highlight banned users"></my-peertube-checkbox>
+
+            <div class="form-group">
+              <my-peertube-checkbox
+                inputName="highlightBannedUsers" [(ngModel)]="highlightBannedUsers"
+                i18n-labelText labelText="Highlight banned users"
+              ></my-peertube-checkbox>
             </div>
           </div>
         </div>
       </th>
-      <th *ngIf="isSelected('username')" pResizableColumn  pSortableColumn="username">{{ getColumn('username').label }} <p-sortIcon field="username"></p-sortIcon></th>
-      <th *ngIf="isSelected('role')" style="width: 120px;"  pSortableColumn="role">{{ getColumn('role').label }} <p-sortIcon field="role"></p-sortIcon></th>
-      <th *ngIf="isSelected('email')">{{ getColumn('email').label }}</th>
-      <th *ngIf="isSelected('quota')" style="width: 160px;"  pSortableColumn="videoQuotaUsed">{{ getColumn('quota').label }} <p-sortIcon field="videoQuotaUsed"></p-sortIcon></th>
-      <th *ngIf="isSelected('quotaDaily')" style="width: 160px;">{{ getColumn('quotaDaily').label }}</th>
-      <th *ngIf="isSelected('pluginAuth')" style="width: 140px;" pResizableColumn >{{ getColumn('pluginAuth').label }}</th>
-      <th *ngIf="isSelected('createdAt')" style="width: 150px;"  pSortableColumn="createdAt">{{ getColumn('createdAt').label }} <p-sortIcon field="createdAt"></p-sortIcon></th>
-      <th *ngIf="isSelected('lastLoginDate')" style="width: 150px;"  pSortableColumn="lastLoginDate">{{ getColumn('lastLoginDate').label }} <p-sortIcon field="lastLoginDate"></p-sortIcon></th>
+      <th scope="col" *ngIf="isSelected('username')" pResizableColumn [ngbTooltip]="sortTooltip" container="body" pSortableColumn="username">{{ getColumn('username').label }} <p-sortIcon field="username"></p-sortIcon></th>
+      <th scope="col" *ngIf="isSelected('role')" style="width: 120px;" [ngbTooltip]="sortTooltip" container="body" pSortableColumn="role">{{ getColumn('role').label }} <p-sortIcon field="role"></p-sortIcon></th>
+      <th scope="col" *ngIf="isSelected('email')">{{ getColumn('email').label }}</th>
+      <th scope="col" *ngIf="isSelected('quota')" style="width: 160px;" [ngbTooltip]="sortTooltip" container="body" pSortableColumn="videoQuotaUsed">{{ getColumn('quota').label }} <p-sortIcon field="videoQuotaUsed"></p-sortIcon></th>
+      <th scope="col" *ngIf="isSelected('quotaDaily')" style="width: 160px;">{{ getColumn('quotaDaily').label }}</th>
+      <th scope="col" *ngIf="isSelected('totalVideoFileSize')" style="width: 100px;">{{ getColumn('totalVideoFileSize').label }}</th>
+      <th scope="col" *ngIf="isSelected('pluginAuth')" style="width: 140px;" pResizableColumn >{{ getColumn('pluginAuth').label }}</th>
+      <th scope="col" *ngIf="isSelected('createdAt')" style="width: 150px;" [ngbTooltip]="sortTooltip" container="body" pSortableColumn="createdAt">{{ getColumn('createdAt').label }} <p-sortIcon field="createdAt"></p-sortIcon></th>
+      <th scope="col" *ngIf="isSelected('lastLoginDate')" style="width: 150px;" [ngbTooltip]="sortTooltip" container="body" pSortableColumn="lastLoginDate">{{ getColumn('lastLoginDate').label }} <p-sortIcon field="lastLoginDate"></p-sortIcon></th>
     </tr>
   </ng-template>
 
@@ -77,14 +83,14 @@
         <p-tableCheckbox [value]="user" ariaLabel="Select this row" i18n-ariaLabel></p-tableCheckbox>
       </td>
 
-      <td class="expand-cell" [ngClass]="{ 'empty-cell': !user.blockedReason }" [pRowToggler]="user">
-        <my-table-expander-icon *ngIf="user.blockedReason" [expanded]="expanded"></my-table-expander-icon>
+      <td class="expand-cell" [ngClass]="{ 'empty-cell': !user.blockedReason }">
+        <my-table-expander-icon *ngIf="user.blockedReason" [pRowToggler]="user" [expanded]="expanded"></my-table-expander-icon>
       </td>
 
       <td class="action-cell">
         <my-user-moderation-dropdown
           *ngIf="!isInSelectionMode()" [user]="user" [account]="user.accountMutedStatus" [displayOptions]="userModerationDisplayOptions"
-          container="body" (userChanged)="onUserChanged()" (userDeleted)="onUserChanged()">
+          container="body" (userChanged)="onUserChanged()" (userDeleted)="onUserChanged()" buttonSize="small">
         </my-user-moderation-dropdown>
       </td>
 
@@ -109,36 +115,36 @@
       </td>
 
       <td *ngIf="isSelected('email')">
-        <my-user-email-info [entry]="user" [requiresEmailVerification]="requiresEmailVerification"></my-user-email-info>
+        <my-user-email-info [entry]="user" showEmailVerifyInformation="true"></my-user-email-info>
       </td>
 
       <td *ngIf="isSelected('quota')">
-        <div class="progress" i18n-title title="Total video quota">
-          <div class="progress-bar" role="progressbar" [style]="{ width: getUserVideoQuotaPercentage(user) + '%' }"
-               [attr.aria-valuenow]="user.rawVideoQuotaUsed" aria-valuemin="0" [attr.aria-valuemax]="user.rawVideoQuota">
-          </div>
-          <span>{{ user.videoQuotaUsed }}</span>
-          <span>{{ user.videoQuota }}</span>
-        </div>
+        <my-progress-bar
+          i18n-label label="Total video quota" [max]="user.rawVideoQuota" [value]="user.rawVideoQuotaUsed"
+          [valueFormatted]="user.videoQuotaUsed" [maxFormatted]="user.videoQuota" size="small"
+        >
+        </my-progress-bar>
       </td>
 
       <td *ngIf="isSelected('quotaDaily')">
-        <div class="progress" i18n-title title="Total daily video quota">
-          <div class="progress-bar" role="progressbar" [style]="{ width: getUserVideoQuotaDailyPercentage(user) + '%' }"
-               [attr.aria-valuenow]="user.rawVideoQuotaUsedDaily" aria-valuemin="0" [attr.aria-valuemax]="user.rawVideoQuotaDaily">
-          </div>
-          <span>{{ user.videoQuotaUsedDaily }}</span>
-          <span>{{ user.videoQuotaDaily }}</span>
-        </div>
+        <my-progress-bar
+          i18n-label label="Total daily video quota" [max]="user.rawVideoQuotaDaily" [value]="user.rawVideoQuotaUsedDaily"
+          [valueFormatted]="user.videoQuotaUsedDaily" [maxFormatted]="user.videoQuotaDaily" size="small"
+        >
+        </my-progress-bar>
+      </td>
+
+      <td *ngIf="isSelected('totalVideoFileSize')">
+        {{ user.totalVideoFileSize | bytes }}
       </td>
 
       <td *ngIf="isSelected('pluginAuth')">
         <span *ngIf="user.pluginAuth" [ngbTooltip]="user.pluginAuth">{{ user.pluginAuth }}</span>
       </td>
 
-      <td *ngIf="isSelected('createdAt')" [title]="user.createdAt">{{ user.createdAt | date: 'short' }}</td>
+      <td *ngIf="isSelected('createdAt')" [title]="user.createdAt">{{ user.createdAt | ptDate: 'short' }}</td>
 
-      <td *ngIf="isSelected('lastLoginDate')" [title]="user.lastLoginDate">{{ user.lastLoginDate | date: 'short' }}</td>
+      <td *ngIf="isSelected('lastLoginDate')" [title]="user.lastLoginDate">{{ user.lastLoginDate | ptDate: 'short' }}</td>
     </tr>
   </ng-template>
 

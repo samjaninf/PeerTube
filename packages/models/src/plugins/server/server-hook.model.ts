@@ -65,6 +65,8 @@ export const serverFilterHookObject = {
   'filter:api.video.post-import-url.accept.result': true,
   'filter:api.video.post-import-torrent.accept.result': true,
   'filter:api.video.update-file.accept.result': true,
+  // PeerTube >= 6.1
+  'filter:api.video.user-import.accept.result': true,
   // Filter the result of the accept comment (thread or reply) functions
   // If the functions return false then the user cannot post its comment
   'filter:api.video-thread.create.accept.result': true,
@@ -75,6 +77,8 @@ export const serverFilterHookObject = {
   'filter:api.video.import-url.video-attribute.result': true,
   'filter:api.video.import-torrent.video-attribute.result': true,
   'filter:api.video.live.video-attribute.result': true,
+  // PeerTube >= 6.1
+  'filter:api.video.user-import.video-attribute.result': true,
 
   // Filter params/result used to list threads of a specific video
   // (used by the video watch page)
@@ -102,6 +106,7 @@ export const serverFilterHookObject = {
 
   // Filter result used to check if video/torrent download is allowed
   'filter:api.download.video.allowed.result': true,
+  'filter:api.download.generated-video.allowed.result': true,
   'filter:api.download.torrent.allowed.result': true,
 
   // Filter result to check if the embed is allowed for a particular request
@@ -133,7 +138,14 @@ export const serverFilterHookObject = {
   // Peertube >= 5.2
   'filter:feed.podcast.channel.create-custom-tags.result': true,
   // Peertube >= 5.2
-  'filter:feed.podcast.video.create-custom-tags.result': true
+  'filter:feed.podcast.video.create-custom-tags.result': true,
+  // Peertube >= 6.1
+  'filter:api.user.me.get.result': true,
+
+  // Peertube >= 7.1
+  'filter:oauth.password-grant.get-user.params': true,
+  'filter:api.email-verification.ask-send-verify-email.body': true,
+  'filter:api.users.ask-reset-password.body': true
 }
 
 export type ServerFilterHookName = keyof typeof serverFilterHookObject

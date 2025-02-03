@@ -1,20 +1,15 @@
-<h1>
-  <my-global-icon iconName="videos" aria-hidden="true"></my-global-icon>
-  <ng-container i18n>Videos</ng-container>
-</h1>
-
 <p-table
   [value]="videos" [paginator]="totalRecords > 0" [totalRecords]="totalRecords" [rows]="rowsPerPage" [first]="pagination.start"
   [rowsPerPageOptions]="rowsPerPageOptions" [sortField]="sort.field" [sortOrder]="sort.order" dataKey="id" [resizableColumns]="true"
   [(selection)]="selectedRows" [lazy]="true" (onLazyLoad)="loadLazy($event)" [lazyLoadOnInit]="false" [selectionPageOnly]="true"
   [showCurrentPageReport]="true" [currentPageReportTemplate]="getPaginationTemplate()"
-  [expandedRowKeys]="expandedRows" [ngClass]="{ loading: loading }"
+  [expandedRowKeys]="expandedRows" [ngClass]="{ loading: loading }" (onRowExpand)="onVideoPanelOpened($event)"
 >
   <ng-template pTemplate="caption">
     <div class="caption">
       <div class="left-buttons">
         <my-action-dropdown
-          *ngIf="isInSelectionMode()" i18n-label label="Batch actions" theme="orange"
+          *ngIf="isInSelectionMode()" i18n-label label="Batch actions" theme="primary"
           [actions]="bulkActions" [entry]="selectedRows"
         >
         </my-action-dropdown>
@@ -31,33 +26,37 @@
 
   <ng-template pTemplate="header">
     <tr>
-      <th style="width: 40px">
+      <th scope="col" style="width: 40px">
         <p-tableHeaderCheckbox ariaLabel="Select all rows" i18n-ariaLabel></p-tableHeaderCheckbox>
       </th>
-      <th style="width: 40px"></th>
-      <th style="width: 70px;"></th>
-      <th i18n>Video</th>
-      <th i18n>Info</th>
-      <th i18n>Files</th>
-      <th style="width: 150px;" i18n pSortableColumn="publishedAt">Published <p-sortIcon field="publishedAt"></p-sortIcon></th>
+      <th scope="col" style="width: 40px;">
+        <span i18n class="visually-hidden">More information</span>
+      </th>
+      <th scope="col" style="width: 70px;">
+        <span i18n class="visually-hidden">Actions</span>
+      </th>
+      <th scope="col" i18n>Video</th>
+      <th scope="col" i18n>Info</th>
+      <th scope="col" i18n [ngbTooltip]="sortTooltip" container="body" pSortableColumn="localVideoFilesSize">Files <p-sortIcon field="localVideoFilesSize"></p-sortIcon></th>
+      <th scope="col" style="width: 150px;" i18n [ngbTooltip]="sortTooltip" container="body" pSortableColumn="publishedAt">Published <p-sortIcon field="publishedAt"></p-sortIcon></th>
     </tr>
   </ng-template>
 
   <ng-template pTemplate="body" let-expanded="expanded" let-video>
 
-    <tr [pSelectableRow]="video">
+    <tr [pSelectableRow]="video" (onRowExpand)="onVideoPanelOpened(video)">
       <td class="checkbox-cell">
         <p-tableCheckbox [value]="video" ariaLabel="Select this row" i18n-ariaLabel></p-tableCheckbox>
       </td>
 
-      <td class="expand-cell" [pRowToggler]="video">
-        <my-table-expander-icon [expanded]="expanded"></my-table-expander-icon>
+      <td class="expand-cell">
+        <my-table-expander-icon [pRowToggler]="video" [expanded]="expanded"></my-table-expander-icon>
       </td>
 
       <td class="action-cell">
         <my-video-actions-dropdown
-          placement="bottom auto" buttonDirection="horizontal" [buttonStyled]="true" [video]="video" [displayOptions]="videoActionsOptions"
-          (videoRemoved)="reloadData()" (videoFilesRemoved)="reloadData()" (transcodingCreated)="reloadData()"
+          placement="bottom auto" buttonDirection="horizontal" buttonStyled="true" [video]="video" [displayOptions]="videoActionsOptions"
+          (videoRemoved)="reloadData()" (videoFilesRemoved)="reloadData()" (transcodingCreated)="reloadData()" buttonSize="small"
         ></my-video-actions-dropdown>
       </td>
 
@@ -66,32 +65,48 @@
       </td>
 
       <td>
-        <span class="pt-badge badge-blue" *ngIf="video.isLocal">Local</span>
-        <span class="pt-badge badge-purple" *ngIf="!video.isLocal">Remote</span>
+        <div>
+          @if (video.isLocal) {
+            <span class="pt-badge badge-blue" i18n>Local</span>
+          } @else {
+            <span class="pt-badge badge-purple" i18n>Remote</span>
+          }
 
-        <span [ngClass]="getPrivacyBadgeClass(video)" class="pt-badge">{{ video.privacy.label }}</span>
+          <span [ngClass]="getPrivacyBadgeClass(video)" class="pt-badge">{{ video.privacy.label }}</span>
 
-        <span *ngIf="video.nsfw" class="pt-badge badge-red" i18n>NSFW</span>
+          <span *ngIf="video.nsfw" class="pt-badge badge-red" i18n>NSFW</span>
 
-        <span *ngIf="isUnpublished(video)" class="pt-badge badge-yellow" i18n>{{ video.state.label }}</span>
+          <span *ngIf="isUnpublished(video)" class="pt-badge badge-yellow">{{ video.state.label }}</span>
 
-        <span *ngIf="isAccountBlocked(video)" class="pt-badge badge-red" i18n>Account muted</span>
-        <span *ngIf="isServerBlocked(video)" class="pt-badge badge-red" i18n>Server muted</span>
+          <span *ngIf="isAccountBlocked(video)" class="pt-badge badge-red" i18n>Account muted</span>
+          <span *ngIf="isServerBlocked(video)" class="pt-badge badge-red" i18n>Server muted</span>
 
-        <span *ngIf="isVideoBlocked(video)" class="pt-badge badge-red" i18n>Blocked</span>
+          <span *ngIf="isVideoBlocked(video)" class="pt-badge badge-red" i18n>Blocked</span>
+        </div>
+
+        <div>
+          @for (tag of video.automaticTags; track tag) {
+            <a
+              i18n-title title="Only display videos with this tag"
+              class="pt-badge badge-secondary me-1"
+              [routerLink]="[ '.' ]" [queryParams]="{ 'search': buildSearchAutoTag(tag) }"
+            >{{ tag }}</a>
+          }
+        </div>
       </td>
 
       <td>
-        <span *ngIf="hasHLS(video)" class="pt-badge badge-blue">HLS</span>
-        <span *ngIf="hasWebVideos(video)" class="pt-badge badge-blue">Web Videos ({{ video.files.length }})</span>
-        <span i18n *ngIf="video.isLive" class="pt-badge badge-blue">Live</span>
-        <span i18n *ngIf="hasObjectStorage(video)" class="pt-badge badge-purple">Object storage</span>
+        <span *ngIf="hasOriginalFile(video)" class="pt-badge badge-blue" i18n>Original file</span>
+        <span *ngIf="hasHLS(video)" class="pt-badge badge-blue" i18n>HLS</span>
+        <span *ngIf="hasWebVideos(video)" class="pt-badge badge-blue" i18n>Web Videos ({{ video.files.length }})</span>
+        <span *ngIf="video.isLive" class="pt-badge badge-blue" i18n>Live</span>
+        <span *ngIf="hasObjectStorage(video)" class="pt-badge badge-purple" i18n>Object storage</span>
 
         <span *ngIf="!isImport(video) && !video.isLive && video.isLocal">{{ getFilesSize(video) | bytes: 1 }}</span>
       </td>
 
       <td>
-        {{ video.publishedAt | date: 'short' }}
+        {{ video.publishedAt | ptDate: 'short' }}
       </td>
 
     </tr>
@@ -101,34 +116,52 @@
     <tr>
       <td class="video-info expand-cell" myAutoColspan>
         <div>
-          <div *ngIf="hasWebVideos(video)">
-            Web Videos:
+          <div class="me-3" *ngIf="hasOriginalFile(video)">
+            <ng-container i18n>Original file:</ng-container>
+
+            <ul>
+              <li>
+                <a title="Download this file" i18n-title [href]="getDownloadUrl(video, video.videoSource.fileDownloadUrl)">{{ video.videoSource.inputFilename }}</a>: {{ video.videoSource.size | bytes: 1 }}
+
+                <button class="border-0 p-0" i18n-title title="Delete this file" (click)="removeVideoSourceFile(video)">
+                  <my-global-icon iconName="delete"></my-global-icon>
+                </button>
+              </li>
+            </ul>
+          </div>
+
+          <div class="me-3" *ngIf="hasWebVideos(video)">
+            <ng-container i18n>Web Videos:</ng-container>
 
             <ul>
               <li *ngFor="let file of video.files">
-                <a target="_blank" rel="noopener noreferrer" [href]="file.fileUrl">{{ file.resolution.label }}</a>: {{ file.size | bytes: 1 }}
+                <a title="Download this file" i18n-title [href]="getDownloadUrl(video, file.fileDownloadUrl)">{{ file.resolution.label }}</a>: {{ file.size | bytes: 1 }}
 
-                <my-global-icon
-                  *ngIf="canRemoveOneFile(video)"
-                  i18n-ngbTooltip ngbTooltip="Delete this file" iconName="delete" role="button"
+                <button
+                  *ngIf="canRemoveOneFile(video)" class="border-0 p-0"
+                  i18n-title title="Delete this file"
                   (click)="removeVideoFile(video, file, 'web-videos')"
-                ></my-global-icon>
+                >
+                  <my-global-icon iconName="delete"></my-global-icon>
+                </button>
               </li>
             </ul>
           </div>
 
           <div *ngIf="hasHLS(video)">
-            HLS:
+            <ng-container i18n>HLS:</ng-container>
 
             <ul>
               <li *ngFor="let file of video.streamingPlaylists[0].files">
-                <a target="_blank" rel="noopener noreferrer" [href]="file.fileUrl">{{ file.resolution.label }}</a>: {{ file.size | bytes: 1 }}
+                <a title="Download this file" i18n-title [href]="getDownloadUrl(video, file.fileDownloadUrl)">{{ file.resolution.label }}</a>: {{ file.size | bytes: 1 }}
 
-                <my-global-icon
-                  *ngIf="canRemoveOneFile(video)"
-                  i18n-ngbTooltip ngbTooltip="Delete this file" iconName="delete" role="button"
+                <button
+                  *ngIf="canRemoveOneFile(video)" class="border-0 p-0"
+                  i18n-title title="Delete this file"
                   (click)="removeVideoFile(video, file, 'hls')"
-                ></my-global-icon>
+                >
+                  <my-global-icon iconName="delete"></my-global-icon>
+                </button>
               </li>
             </ul>
           </div>

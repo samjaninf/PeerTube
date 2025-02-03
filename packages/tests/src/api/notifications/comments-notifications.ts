@@ -1,14 +1,15 @@
 /* eslint-disable @typescript-eslint/no-unused-expressions,@typescript-eslint/require-await */
 
-import { expect } from 'chai'
-import { UserNotification } from '@peertube/peertube-models'
-import { cleanupTests, PeerTubeServer, waitJobs } from '@peertube/peertube-server-commands'
+import { UserNotification, UserNotificationType, VideoCommentPolicy } from '@peertube/peertube-models'
+import { PeerTubeServer, cleanupTests, setDefaultAccountAvatar, waitJobs } from '@peertube/peertube-server-commands'
 import { MockSmtpServer } from '@tests/shared/mock-servers/mock-email.js'
-import { prepareNotificationsTest, CheckerBaseParams, checkNewCommentOnMyVideo, checkCommentMention } from '@tests/shared/notifications.js'
+import { CheckerBaseParams, checkCommentMention, checkNewCommentOnMyVideo, prepareNotificationsTest } from '@tests/shared/notifications.js'
+import { expect } from 'chai'
 
 describe('Test comments notifications', function () {
   let servers: PeerTubeServer[] = []
   let userToken: string
+  let userToken2: string
   let userNotifications: UserNotification[] = []
   let emails: object[] = []
 
@@ -24,6 +25,9 @@ describe('Test comments notifications', function () {
     userToken = res.userAccessToken
     servers = res.servers
     userNotifications = res.userNotifications
+
+    userToken2 = await servers[0].users.generateUserAndToken('user2')
+    await setDefaultAccountAvatar(servers[0], userToken2)
   })
 
   describe('Comment on my video notifications', function () {
@@ -39,7 +43,7 @@ describe('Test comments notifications', function () {
     })
 
     it('Should not send a new comment notification after a comment on another video', async function () {
-      this.timeout(30000)
+      this.timeout(60000)
 
       const { uuid, shortUUID } = await servers[0].videos.upload({ attributes: { name: 'super video' } })
 
@@ -51,7 +55,7 @@ describe('Test comments notifications', function () {
     })
 
     it('Should not send a new comment notification if I comment my own video', async function () {
-      this.timeout(30000)
+      this.timeout(60000)
 
       const { uuid, shortUUID } = await servers[0].videos.upload({ token: userToken, attributes: { name: 'super video' } })
 
@@ -63,7 +67,7 @@ describe('Test comments notifications', function () {
     })
 
     it('Should not send a new comment notification if the account is muted', async function () {
-      this.timeout(30000)
+      this.timeout(60000)
 
       await servers[0].blocklist.addToMyBlocklist({ token: userToken, account: 'root' })
 
@@ -79,7 +83,7 @@ describe('Test comments notifications', function () {
     })
 
     it('Should send a new comment notification after a local comment on my video', async function () {
-      this.timeout(30000)
+      this.timeout(60000)
 
       const { uuid, shortUUID } = await servers[0].videos.upload({ token: userToken, attributes: { name: 'super video' } })
 
@@ -91,14 +95,12 @@ describe('Test comments notifications', function () {
     })
 
     it('Should send a new comment notification after a remote comment on my video', async function () {
-      this.timeout(30000)
+      this.timeout(60000)
 
       const { uuid, shortUUID } = await servers[0].videos.upload({ token: userToken, attributes: { name: 'super video' } })
-
       await waitJobs(servers)
 
       await servers[1].comments.createThread({ videoId: uuid, text: 'comment' })
-
       await waitJobs(servers)
 
       const { data } = await servers[0].comments.listThreads({ videoId: uuid })
@@ -109,7 +111,7 @@ describe('Test comments notifications', function () {
     })
 
     it('Should send a new comment notification after a local reply on my video', async function () {
-      this.timeout(30000)
+      this.timeout(60000)
 
       const { uuid, shortUUID } = await servers[0].videos.upload({ token: userToken, attributes: { name: 'super video' } })
 
@@ -122,7 +124,7 @@ describe('Test comments notifications', function () {
     })
 
     it('Should send a new comment notification after a remote reply on my video', async function () {
-      this.timeout(30000)
+      this.timeout(60000)
 
       const { uuid, shortUUID } = await servers[0].videos.upload({ token: userToken, attributes: { name: 'super video' } })
       await waitJobs(servers)
@@ -147,8 +149,47 @@ describe('Test comments notifications', function () {
       await checkNewCommentOnMyVideo({ ...baseParams, shortUUID, threadId, commentId, checkType: 'presence' })
     })
 
+    it('Should send a new comment notification of a comment that requires approval', async function () {
+      this.timeout(60000)
+
+      const { id: videoId, uuid, shortUUID } = await servers[0].videos.upload({
+        token: userToken,
+        attributes: { name: 'super video', commentsPolicy: VideoCommentPolicy.REQUIRES_APPROVAL }
+      })
+      await waitJobs(servers)
+
+      let localCommentId: number
+      {
+        const created = await servers[0].comments.createThread({ videoId: uuid, text: 'local approval', token: userToken2 })
+        const commentId = localCommentId = created.id
+
+        await waitJobs(servers)
+        await checkNewCommentOnMyVideo({ ...baseParams, shortUUID, threadId: commentId, commentId, checkType: 'presence', approval: true })
+      }
+
+      {
+        await servers[1].comments.createThread({ videoId: uuid, text: 'remote approval' })
+        await waitJobs(servers)
+
+        const commentId = await servers[0].comments.findCommentId({ token: userToken, videoId, text: 'remote approval' })
+
+        await checkNewCommentOnMyVideo({ ...baseParams, shortUUID, threadId: commentId, commentId, checkType: 'presence', approval: true })
+      }
+
+      // It should not re-notify on approval
+      {
+        await servers[0].comments.approve({ token: userToken, commentId: localCommentId, videoId: shortUUID })
+        await waitJobs(servers)
+
+        const notifications = baseParams.socketNotifications
+          .filter(n => n.type === UserNotificationType.NEW_COMMENT_ON_MY_VIDEO && n.comment?.video?.shortUUID === shortUUID)
+
+        expect(notifications).to.have.lengthOf(2)
+      }
+    })
+
     it('Should convert markdown in comment to html', async function () {
-      this.timeout(30000)
+      this.timeout(60000)
 
       const { uuid } = await servers[0].videos.upload({ token: userToken, attributes: { name: 'cool video' } })
 
@@ -178,7 +219,7 @@ describe('Test comments notifications', function () {
     })
 
     it('Should not send a new mention comment notification if I mention the video owner', async function () {
-      this.timeout(30000)
+      this.timeout(60000)
 
       const { uuid, shortUUID } = await servers[0].videos.upload({ token: userToken, attributes: { name: 'super video' } })
 
@@ -189,7 +230,7 @@ describe('Test comments notifications', function () {
     })
 
     it('Should not send a new mention comment notification if I mention myself', async function () {
-      this.timeout(30000)
+      this.timeout(60000)
 
       const { uuid, shortUUID } = await servers[0].videos.upload({ attributes: { name: 'super video' } })
 
@@ -200,7 +241,7 @@ describe('Test comments notifications', function () {
     })
 
     it('Should not send a new mention notification if the account is muted', async function () {
-      this.timeout(30000)
+      this.timeout(60000)
 
       await servers[0].blocklist.addToMyBlocklist({ token: userToken, account: 'root' })
 
@@ -215,7 +256,7 @@ describe('Test comments notifications', function () {
     })
 
     it('Should not send a new mention notification if the remote account mention a local account', async function () {
-      this.timeout(30000)
+      this.timeout(60000)
 
       const { uuid, shortUUID } = await servers[0].videos.upload({ attributes: { name: 'super video' } })
 
@@ -229,7 +270,7 @@ describe('Test comments notifications', function () {
     })
 
     it('Should send a new mention notification after local comments', async function () {
-      this.timeout(30000)
+      this.timeout(60000)
 
       const { uuid, shortUUID } = await servers[0].videos.upload({ attributes: { name: 'super video' } })
 
@@ -245,7 +286,7 @@ describe('Test comments notifications', function () {
     })
 
     it('Should send a new mention notification after remote comments', async function () {
-      this.timeout(30000)
+      this.timeout(60000)
 
       const { uuid, shortUUID } = await servers[0].videos.upload({ attributes: { name: 'super video' } })
 
@@ -276,8 +317,66 @@ describe('Test comments notifications', function () {
       await checkCommentMention({ ...baseParams, shortUUID, commentId, threadId, byAccountDisplayName, checkType: 'presence' })
     })
 
+    it('Should not send a new mention notification before approval', async function () {
+      this.timeout(60000)
+
+      const { id: videoId, uuid, shortUUID } = await servers[0].videos.upload({
+        attributes: { name: 'super video', commentsPolicy: VideoCommentPolicy.REQUIRES_APPROVAL }
+      })
+      await waitJobs(servers)
+
+      const localText = '@user_1 local approval'
+      {
+        const { id: threadId } = await servers[0].comments.createThread({ videoId: uuid, text: localText, token: userToken2 })
+        await waitJobs(servers)
+
+        await checkCommentMention({
+          ...baseParams,
+          shortUUID,
+          threadId,
+          commentId: threadId,
+          byAccountDisplayName: 'user2',
+          checkType: 'absence'
+        })
+      }
+
+      const remoteText = `@user_1@${servers[0].host} remote approval`
+      {
+        await servers[1].comments.createThread({ videoId: uuid, text: remoteText })
+        await waitJobs(servers)
+
+        const threadId = await servers[0].comments.findCommentId({ token: userToken, videoId, text: remoteText })
+        const byAccountDisplayName = 'super root 2 name'
+        await checkCommentMention({ ...baseParams, shortUUID, threadId, commentId: threadId, byAccountDisplayName, checkType: 'absence' })
+      }
+
+      // It should notify on approval
+      {
+        const toTest = [
+          { text: localText, byAccountDisplayName: 'user2' },
+          { text: remoteText, byAccountDisplayName: 'super root 2 name' }
+        ]
+
+        for (const { text, byAccountDisplayName } of toTest) {
+          const localCommentId = await servers[0].comments.findCommentId({ token: userToken, videoId, text })
+
+          await servers[0].comments.approve({ commentId: localCommentId, videoId: shortUUID })
+          await waitJobs(servers)
+
+          await checkCommentMention({
+            ...baseParams,
+            shortUUID,
+            threadId: localCommentId,
+            commentId: localCommentId,
+            byAccountDisplayName,
+            checkType: 'presence'
+          })
+        }
+      }
+    })
+
     it('Should convert markdown in comment to html', async function () {
-      this.timeout(30000)
+      this.timeout(60000)
 
       const { uuid } = await servers[0].videos.upload({ attributes: { name: 'super video' } })
 

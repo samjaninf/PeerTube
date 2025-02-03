@@ -10,7 +10,7 @@ import {
   setDefaultVideoChannel
 } from '@peertube/peertube-server-commands'
 
-describe('Test videos views', function () {
+describe('Test videos views API validators', function () {
   let servers: PeerTubeServer[]
   let liveVideoId: string
   let videoId: string
@@ -18,7 +18,7 @@ describe('Test videos views', function () {
   let userAccessToken: string
 
   before(async function () {
-    this.timeout(120000)
+    this.timeout(240000)
 
     servers = await createMultipleServers(2)
     await setAccessTokensToServers(servers)
@@ -48,6 +48,7 @@ describe('Test videos views', function () {
     })
 
     it('Should fail with an invalid current time', async function () {
+      await servers[0].views.view({ id: videoId, currentTime: null, expectedStatus: HttpStatusCode.BAD_REQUEST_400 })
       await servers[0].views.view({ id: videoId, currentTime: -1, expectedStatus: HttpStatusCode.BAD_REQUEST_400 })
       await servers[0].views.view({ id: videoId, currentTime: 10, expectedStatus: HttpStatusCode.BAD_REQUEST_400 })
     })

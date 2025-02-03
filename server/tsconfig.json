@@ -6,7 +6,7 @@
     "rootDir": ".",
     "tsBuildInfoFile": "../dist/.tsbuildinfo",
     "paths": {
-      "@server/*": [ "server/server/*" ]
+      "@server/*": [ "server/core/*" ]
     }
   },
   "references": [
@@ -14,9 +14,13 @@
     { "path": "../packages/ffmpeg" },
     { "path": "../packages/models" },
     { "path": "../packages/node-utils" },
+    { "path": "../packages/transcription" },
     { "path": "../packages/typescript-utils" }
   ],
   "include": [
     "./**/*.ts"
+  ],
+  "exclude": [
+    "./dist/**/*.ts"
   ]
 }

@@ -38,7 +38,7 @@ describe('Test index search', function () {
   describe('Default search', async function () {
 
     it('Should make a local videos search by default', async function () {
-      await server.config.updateCustomSubConfig({
+      await server.config.updateExistingConfig({
         newConfig: {
           search: {
             searchIndex: {
@@ -65,7 +65,7 @@ describe('Test index search', function () {
     })
 
     it('Should make an index videos search by default', async function () {
-      await server.config.updateCustomSubConfig({
+      await server.config.updateExistingConfig({
         newConfig: {
           search: {
             searchIndex: {
@@ -108,7 +108,7 @@ describe('Test index search', function () {
       expect(video.licence.label).to.equal('Attribution - Share Alike')
       expect(video.privacy.label).to.equal('Public')
       expect(video.duration).to.equal(113)
-      expect(video.thumbnailUrl.startsWith('https://framatube.org/static/thumbnails')).to.be.true
+      expect(video.thumbnailUrl.startsWith('https://framatube.org/lazy-static/thumbnails')).to.be.true
 
       expect(video.account.host).to.equal('framatube.org')
       expect(video.account.name).to.equal('framasoft')
@@ -243,7 +243,7 @@ describe('Test index search', function () {
       let nsfwUUID: string
 
       {
-        await server.config.updateCustomSubConfig({
+        await server.config.updateExistingConfig({
           newConfig: {
             instance: { defaultNSFWPolicy: 'display' }
           }
@@ -259,7 +259,7 @@ describe('Test index search', function () {
       }
 
       {
-        await server.config.updateCustomSubConfig({
+        await server.config.updateExistingConfig({
           newConfig: {
             instance: { defaultNSFWPolicy: 'do_not_list' }
           }
@@ -312,7 +312,7 @@ describe('Test index search', function () {
     })
 
     it('Should make a search and have results', async function () {
-      await check({ search: 'Framasoft', sort: 'createdAt' }, true)
+      await check({ search: 'Framasoft vidéos', sort: 'createdAt' }, true)
     })
 
     it('Should make host search and have appropriate results', async function () {

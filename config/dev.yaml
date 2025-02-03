@@ -17,11 +17,11 @@ rates_limit:
     max: 200
 
 database:
-  hostname: 'localhost'
+  hostname: '127.0.0.1'
   port: 5432
 
 redis:
-  hostname: 'localhost'
+  hostname: '127.0.0.1'
 
 smtp:
   hostname: null
@@ -38,6 +38,7 @@ log:
 open_telemetry:
   metrics:
     enabled: true
+    playback_stats_interval: '13 seconds'
 
 contact_form:
   enabled: true
@@ -118,8 +119,15 @@ views:
     remote:
       max_age: -1
 
+    watching_interval:
+      anonymous: '6 seconds'
+      users: '4 seconds'
+
 geo_ip:
   enabled: true
 
 video_studio:
   enabled: true
+
+transcoding:
+  keep_original_file: false

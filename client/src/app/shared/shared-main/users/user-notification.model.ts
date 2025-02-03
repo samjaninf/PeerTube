@@ -1,7 +1,7 @@
 import { AuthUser } from '@app/core'
 import { Account } from '@app/shared/shared-main/account/account.model'
 import { Actor } from '@app/shared/shared-main/account/actor.model'
-import { VideoChannel } from '@app/shared/shared-main/video-channel/video-channel.model'
+import { VideoChannel } from '@app/shared/shared-main/channel/video-channel.model'
 import {
   AbuseStateType,
   ActorInfo,
@@ -11,10 +11,11 @@ import {
   UserNotificationType,
   UserNotificationType_Type,
   UserRight,
+  VideoConstant,
   VideoInfo
 } from '@peertube/peertube-models'
 import { logger } from '@root-helpers/logger'
-import { Video } from '../video'
+import { Video } from '../video/video.model'
 
 export class UserNotification implements UserNotificationServer {
   id: number
@@ -36,6 +37,7 @@ export class UserNotification implements UserNotificationServer {
   comment?: {
     id: number
     threadId: number
+    heldForReview: boolean
     account: ActorInfo & { avatarUrl?: string }
     video: VideoInfo
   }
@@ -89,12 +91,21 @@ export class UserNotification implements UserNotificationServer {
     username: string
   }
 
+  videoCaption?: {
+    id: number
+    language: VideoConstant<string>
+    video: VideoInfo
+  }
+
   createdAt: string
   updatedAt: string
 
   // Additional fields
   videoUrl?: string
   commentUrl?: any[]
+
+  commentReviewUrl?: string
+  commentReviewQueryParams?: { [id: string]: string } = {}
 
   abuseUrl?: string
   abuseQueryParams?: { [id: string]: string } = {}
@@ -145,11 +156,14 @@ export class UserNotification implements UserNotificationServer {
       this.peertube = hash.peertube
       this.registration = hash.registration
 
+      this.videoCaption = hash.videoCaption
+
       this.createdAt = hash.createdAt
       this.updatedAt = hash.updatedAt
 
       switch (this.type) {
         case UserNotificationType.NEW_VIDEO_FROM_SUBSCRIPTION:
+        case UserNotificationType.NEW_LIVE_FROM_SUBSCRIPTION:
           this.videoUrl = this.buildVideoUrl(this.video)
           break
 
@@ -162,6 +176,9 @@ export class UserNotification implements UserNotificationServer {
           if (!this.comment) break
           this.accountUrl = this.buildAccountUrl(this.comment.account)
           this.commentUrl = this.buildCommentUrl(this.comment)
+
+          this.commentReviewUrl = '/my-account/videos/comments'
+          this.commentReviewQueryParams.search = 'heldForReview:true'
           break
 
         case UserNotificationType.NEW_ABUSE_FOR_MODERATORS:
@@ -226,11 +243,11 @@ export class UserNotification implements UserNotificationServer {
           break
 
         case UserNotificationType.NEW_INSTANCE_FOLLOWER:
-          this.instanceFollowUrl = '/admin/follows/followers-list'
+          this.instanceFollowUrl = '/admin/settings/follows/followers-list'
           break
 
         case UserNotificationType.AUTO_INSTANCE_FOLLOWING:
-          this.instanceFollowUrl = '/admin/follows/following-list'
+          this.instanceFollowUrl = '/admin/settings/follows/following-list'
           break
 
         case UserNotificationType.NEW_PEERTUBE_VERSION:
@@ -238,8 +255,12 @@ export class UserNotification implements UserNotificationServer {
           break
 
         case UserNotificationType.NEW_PLUGIN_VERSION:
-          this.pluginUrl = `/admin/plugins/list-installed`
+          this.pluginUrl = `/admin/settings/plugins/list-installed`
           this.pluginQueryParams.pluginType = this.plugin.type + ''
+          break
+
+        case UserNotificationType.MY_VIDEO_TRANSCRIPTION_GENERATED:
+          this.videoUrl = this.buildVideoUrl(this.videoCaption.video)
           break
 
         case UserNotificationType.MY_VIDEO_STUDIO_EDITION_FINISHED:
@@ -264,8 +285,8 @@ export class UserNotification implements UserNotificationServer {
     return '/my-library/video-imports'
   }
 
-  private buildVideoImportIdentifier (videoImport: { targetUrl?: string, magnetUri?: string, torrentName?: string }) {
-    return videoImport.targetUrl || videoImport.magnetUri || videoImport.torrentName
+  private buildVideoImportIdentifier (videoImport: UserNotification['videoImport']) {
+    return videoImport.video?.name || videoImport.targetUrl || videoImport.magnetUri || videoImport.torrentName
   }
 
   private buildCommentUrl (comment: { video: { uuid: string }, threadId: number }) {

@@ -1,5 +1,7 @@
 name: Benchmark
 
+permissions: {}
+
 on:
   push:
     branches:
@@ -31,11 +33,11 @@ jobs:
       PGHOST: localhost
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: './.github/actions/reusable-prepare-peertube-build'
         with:
-          node-version: '16.x'
+          node-version: '20.x'
 
       - uses: './.github/actions/reusable-prepare-peertube-run'
 

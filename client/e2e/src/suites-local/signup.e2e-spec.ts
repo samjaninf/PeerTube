@@ -35,7 +35,7 @@ function checkEndMessage (options: {
   }
 
   {
-    const checkEmail = 'Check your emails'
+    const checkEmail = 'Check your email'
 
     if (requiresEmailVerification) {
       expect(message).toContain(checkEmail)
@@ -126,7 +126,7 @@ describe('Signup', () => {
       })
 
       it('Should go on signup page', async function () {
-        await signupPage.clickOnRegisterInMenu()
+        await signupPage.clickOnRegisterButton()
       })
 
       it('Should validate the first step (about page)', async function () {
@@ -179,7 +179,7 @@ describe('Signup', () => {
       })
 
       it('Should go on signup page', async function () {
-        await signupPage.clickOnRegisterInMenu()
+        await signupPage.clickOnRegisterButton()
       })
 
       it('Should validate the first step (about page)', async function () {
@@ -260,7 +260,7 @@ describe('Signup', () => {
       })
 
       it('Should go on signup page', async function () {
-        await signupPage.clickOnRegisterInMenu()
+        await signupPage.clickOnRegisterButton()
       })
 
       it('Should validate the first step (about page)', async function () {
@@ -328,7 +328,7 @@ describe('Signup', () => {
       })
 
       it('Should go on signup page', async function () {
-        await signupPage.clickOnRegisterInMenu()
+        await signupPage.clickOnRegisterButton()
       })
 
       it('Should validate the first step (about page)', async function () {

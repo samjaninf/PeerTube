@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-expressions,@typescript-eslint/require-await */
 
 import { expect } from 'chai'
-import { decrypt, encrypt } from '@peertube/peertube-server/server/helpers/peertube-crypto.js'
+import { decrypt, encrypt } from '@peertube/peertube-server/core/helpers/peertube-crypto.js'
 
 describe('Encrypt/Descrypt', function () {
 
@@ -20,14 +20,12 @@ describe('Encrypt/Descrypt', function () {
 
     const encrypted = await encrypt(str, 'my_secret')
 
-    let error = false
+    let decrypted = ''
 
     try {
-      await decrypt(encrypted, 'my_sicret')
-    } catch (err) {
-      error = true
-    }
+      decrypted = await decrypt(encrypted, 'my_sicret')
+    } catch { }
 
-    expect(error).to.be.true
+    expect(decrypted).to.not.equal(encrypted)
   })
 })

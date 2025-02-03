@@ -1,6 +1,6 @@
-import ffmpeg, { FfprobeData } from 'fluent-ffmpeg'
-import { forceNumber } from '@peertube/peertube-core-utils'
+import { buildAspectRatio, forceNumber } from '@peertube/peertube-core-utils'
 import { VideoResolution } from '@peertube/peertube-models'
+import ffmpeg, { FfprobeData } from 'fluent-ffmpeg'
 
 /**
  *
@@ -44,9 +44,6 @@ async function hasAudioStream (path: string, existingProbe?: FfprobeData) {
 }
 
 async function getAudioStream (videoPath: string, existingProbe?: FfprobeData) {
-  // without position, ffprobe considers the last input only
-  // we make it consider the first input only
-  // if you pass a file path to pos, then ffprobe acts on that file directly
   const data = existingProbe || await ffprobePromise(videoPath)
 
   if (Array.isArray(data.streams)) {
@@ -114,10 +111,20 @@ async function getVideoStreamDimensionsInfo (path: string, existingProbe?: Ffpro
     }
   }
 
+  const rotation = videoStream.rotation
+    ? videoStream.rotation + ''
+    : undefined
+
+  if (rotation === '90' || rotation === '-90') {
+    const width = videoStream.width
+    videoStream.width = videoStream.height
+    videoStream.height = width
+  }
+
   return {
     width: videoStream.width,
     height: videoStream.height,
-    ratio: Math.max(videoStream.height, videoStream.width) / Math.min(videoStream.height, videoStream.width),
+    ratio: buildAspectRatio({ width: videoStream.width, height: videoStream.height }),
     resolution: Math.min(videoStream.height, videoStream.width),
     isPortraitMode: videoStream.height > videoStream.width
   }
@@ -168,34 +175,50 @@ async function getVideoStream (path: string, existingProbe?: FfprobeData) {
   return metadata.streams.find(s => s.codec_type === 'video')
 }
 
+async function hasVideoStream (path: string, existingProbe?: FfprobeData) {
+  const videoStream = await getVideoStream(path, existingProbe)
+
+  return !!videoStream
+}
+
 // ---------------------------------------------------------------------------
 // Chapters
 // ---------------------------------------------------------------------------
 
-async function getChaptersFromContainer (path: string, existingProbe?: FfprobeData) {
-  const metadata = existingProbe || await ffprobePromise(path)
+async function getChaptersFromContainer (options: {
+  path: string
+  maxTitleLength: number
+  ffprobe?: FfprobeData
+}) {
+  const { path, maxTitleLength, ffprobe } = options
+
+  const metadata = ffprobe || await ffprobePromise(path)
 
   if (!Array.isArray(metadata?.chapters)) return []
 
   return metadata.chapters
     .map(c => ({
-      timecode: c.start_time,
-      title: c['TAG:title']
+      timecode: Math.round(c.start_time),
+      title: (c['TAG:title'] || '').slice(0, maxTitleLength)
     }))
 }
 
 // ---------------------------------------------------------------------------
 
 export {
-  getVideoStreamDimensionsInfo,
-  getChaptersFromContainer,
-  getMaxAudioBitrate,
-  getVideoStream,
-  getVideoStreamDuration,
-  getAudioStream,
-  getVideoStreamFPS,
-  isAudioFile,
   ffprobePromise,
+  getAudioStream,
+  getChaptersFromContainer,
+
+  getMaxAudioBitrate,
+
+  getVideoStream,
   getVideoStreamBitrate,
-  hasAudioStream
+  getVideoStreamDimensionsInfo,
+  getVideoStreamDuration,
+  getVideoStreamFPS,
+  hasAudioStream,
+
+  hasVideoStream,
+  isAudioFile
 }

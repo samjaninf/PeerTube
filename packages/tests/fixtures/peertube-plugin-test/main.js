@@ -1,5 +1,34 @@
 async function register ({ registerHook, registerSetting, settingsManager, storageManager, peertubeHelpers }) {
   {
+    registerSetting({
+      name: 'unique-setting',
+      label: 'Unique setting',
+      type: 'select',
+      options: []
+    })
+
+    registerSetting({
+      name: 'unique-setting',
+      label: 'Unique setting',
+      type: 'select',
+      options: [
+        {
+          value: 1,
+          label: 'One'
+        }
+      ]
+    })
+
+    registerSetting({
+      label: 'Unnamed 1',
+      type: 'input'
+    })
+
+    registerSetting({
+      label: 'Unnamed 2',
+      type: 'input'
+    })
+
     const actionHooks = [
       'action:application.listening',
       'action:notifier.notification.created',
@@ -101,6 +130,15 @@ async function register ({ registerHook, registerSetting, settingsManager, stora
   registerHook({
     target: 'filter:api.user.me.videos.list.result',
     handler: obj => addToTotal(obj, 4)
+  })
+
+  registerHook({
+    target: 'filter:api.user.me.get.result',
+    handler: (result) => {
+      result.customParam = 'Customized'
+
+      return result
+    }
   })
 
   registerHook({
@@ -212,6 +250,16 @@ async function register ({ registerHook, registerSetting, settingsManager, stora
     }
   })
 
+  registerHook({
+    target: 'filter:api.video.user-import.accept.result',
+    handler: ({ accepted }, { videoBody }) => {
+      if (!accepted) return { accepted: false }
+      if (videoBody.name === 'video 1') return { accepted: false, errorMessage: 'bad word' }
+
+      return { accepted: true }
+    }
+  })
+
   // ---------------------------------------------------------------------------
 
   registerHook({
@@ -233,7 +281,7 @@ async function register ({ registerHook, registerSetting, settingsManager, stora
 
   registerHook({
     target: 'filter:activity-pub.activity.context.build.result',
-    handler: context => context.concat([ { recordedAt: 'https://schema.org/recordedAt' } ])
+    handler: context => context.concat([ { recordedAt: 'https://schema.org/recordedAt', videoName: 'https://schema.org/name' } ])
   })
 
   registerHook({
@@ -402,7 +450,8 @@ async function register ({ registerHook, registerSetting, settingsManager, stora
     'filter:api.video.upload.video-attribute.result',
     'filter:api.video.import-url.video-attribute.result',
     'filter:api.video.import-torrent.video-attribute.result',
-    'filter:api.video.live.video-attribute.result'
+    'filter:api.video.live.video-attribute.result',
+    'filter:api.video.user-import.video-attribute.result'
   ]) {
     registerHook({
       target,

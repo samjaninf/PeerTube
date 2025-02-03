@@ -1,7 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-expressions,@typescript-eslint/require-await,@typescript-eslint/no-floating-promises */
 
-import { decode as magnetUriDecode, encode as magnetUriEncode } from 'magnet-uri'
-import WebTorrent from 'webtorrent'
 import {
   cleanupTests,
   createSingleServer,
@@ -9,11 +7,14 @@ import {
   PeerTubeServer,
   setAccessTokensToServers
 } from '@peertube/peertube-server-commands'
+import { magnetUriDecode, magnetUriEncode } from '@tests/shared/webtorrent.js'
+import WebTorrent from 'webtorrent'
 
 describe('Test tracker', function () {
   let server: PeerTubeServer
   let badMagnet: string
   let goodMagnet: string
+  let webtorrent: WebTorrent.Instance
 
   before(async function () {
     this.timeout(60000)
@@ -25,16 +26,22 @@ describe('Test tracker', function () {
       const video = await server.videos.get({ id: uuid })
       goodMagnet = video.files[0].magnetUri
 
-      const parsed = magnetUriDecode(goodMagnet)
+      const parsed = await magnetUriDecode(goodMagnet)
       parsed.infoHash = '010597bb88b1968a5693a4fa8267c592ca65f2e9'
 
-      badMagnet = magnetUriEncode(parsed)
+      badMagnet = await magnetUriEncode(parsed)
     }
   })
 
-  it('Should succeed with the correct infohash', function (done) {
-    const webtorrent = new WebTorrent()
+  beforeEach(() => {
+    webtorrent = new WebTorrent()
+  })
 
+  afterEach(() => {
+    webtorrent.destroy()
+  })
+
+  it('Should succeed with the correct infohash', function (done) {
     const torrent = webtorrent.add(goodMagnet)
 
     torrent.on('error', done)
@@ -54,8 +61,6 @@ describe('Test tracker', function () {
     killallServers([ server ])
       .then(() => server.run({ tracker: { enabled: false } }))
       .then(() => {
-        const webtorrent = new WebTorrent()
-
         const torrent = webtorrent.add(goodMagnet)
 
         torrent.on('error', done)
@@ -78,14 +83,16 @@ describe('Test tracker', function () {
     killallServers([ server ])
       .then(() => server.run())
       .then(() => {
-        const webtorrent = new WebTorrent()
-
         const torrent = webtorrent.add(badMagnet)
 
         torrent.on('error', done)
-        torrent.on('warning', warn => {
+        torrent.on('warning', function onWarn (warn) {
           const message = typeof warn === 'string' ? warn : warn.message
-          if (message.includes('Unknown infoHash ')) return done()
+          if (message.includes('Unknown infoHash ')) {
+            torrent.off('warning', onWarn)
+
+            return done()
+          }
         })
 
         torrent.on('done', () => done(new Error('No error on infohash')))
@@ -101,6 +108,7 @@ describe('Test tracker', function () {
     torrent.on('warning', warn => {
       const message = typeof warn === 'string' ? warn : warn.message
       if (message.includes('Unsupported tracker protocol')) return done()
+      if (message.includes('Error connecting')) return done()
     })
   })
 

@@ -1,10 +1,11 @@
 /* eslint-disable @typescript-eslint/no-implied-eval */
-import * as debug from 'debug'
+import debug from 'debug'
 import { firstValueFrom, ReplaySubject } from 'rxjs'
 import { first, shareReplay } from 'rxjs/operators'
 import { RegisterClientHelpers } from 'src/types/register-client-option.model'
 import { getExternalAuthHref, getHookType, internalRunHook } from '@peertube/peertube-core-utils'
 import {
+  ClientDoAction,
   ClientHookName,
   clientHookObject,
   ClientScriptJSON,
@@ -70,20 +71,27 @@ class PluginsManager {
     'video-edit': new ReplaySubject<boolean>(1),
     'embed': new ReplaySubject<boolean>(1),
     'my-library': new ReplaySubject<boolean>(1),
-    'video-channel': new ReplaySubject<boolean>(1)
+    'video-channel': new ReplaySubject<boolean>(1),
+    'my-account': new ReplaySubject<boolean>(1),
+    'admin-users': new ReplaySubject<boolean>(1),
+    'admin-comments': new ReplaySubject<boolean>(1),
+    'moderation': new ReplaySubject<boolean>(1)
   }
 
+  private readonly doAction: ClientDoAction
   private readonly peertubeHelpersFactory: PeertubeHelpersFactory
   private readonly onFormFields: OnFormFields
   private readonly onSettingsScripts: OnSettingsScripts
   private readonly onClientRoute: OnClientRoute
 
   constructor (options: {
+    doAction?: ClientDoAction
     peertubeHelpersFactory: PeertubeHelpersFactory
     onFormFields?: OnFormFields
     onSettingsScripts?: OnSettingsScripts
     onClientRoute?: OnClientRoute
   }) {
+    this.doAction = options.doAction
     this.peertubeHelpersFactory = options.peertubeHelpersFactory
     this.onFormFields = options.onFormFields
     this.onSettingsScripts = options.onSettingsScripts
@@ -267,6 +275,8 @@ class PluginsManager {
       return this.onClientRoute(options)
     }
 
+    const doAction = this.doAction
+
     const peertubeHelpers = this.peertubeHelpersFactory(pluginInfo)
 
     logger.info(`Loading script ${clientScript.script} of plugin ${plugin.name}`)
@@ -275,6 +285,7 @@ class PluginsManager {
     return dynamicImport(absURL)
       .then((script: ClientScript) => {
         return script.register({
+          doAction,
           registerHook,
           registerVideoField,
           registerSettingsScript,
@@ -298,10 +309,10 @@ class PluginsManager {
 export {
   PluginsManager,
 
-  PluginInfo,
-  PeertubeHelpersFactory,
-  OnFormFields,
-  OnSettingsScripts
+  type PluginInfo,
+  type PeertubeHelpersFactory,
+  type OnFormFields,
+  type OnSettingsScripts
 }
 
 // ---------------------------------------------------------------------------

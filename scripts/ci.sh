@@ -51,18 +51,19 @@ if [ "$1" = "types-package" ]; then
     cp -r packages/types-generator/dist /tmp/types-generator/dist
     (cd /tmp/types-generator/dist && npm install)
 
-    npm run tsc -- --noEmit --esModuleInterop --moduleResolution node16 /tmp/types-generator/tests/test.ts
+    npm run tsc -- --noEmit --esModuleInterop --moduleResolution node16 --module Node16 /tmp/types-generator/tests/test.ts
     rm -r /tmp/types-generator
 elif [ "$1" = "client" ]; then
     npm run build
     npm run build:tests
 
     feedsFiles=$(findTestFiles ./packages/tests/dist/feeds)
-    miscFiles="./packages/tests/dist/client.js ./packages/tests/dist/misc-endpoints.js"
+    clientFiles=$(findTestFiles ./packages/tests/dist/client)
+    miscFiles="./packages/tests/dist/misc-endpoints.js ./packages/tests/dist/nginx.js"
     # Not in their own task, they need an index.html
     pluginFiles="./packages/tests/dist/plugins/html-injection.js ./packages/tests/dist/api/server/plugins.js"
 
-    MOCHA_PARALLEL=true runJSTest "$1" $((2*$speedFactor)) $feedsFiles $miscFiles $pluginFiles
+    MOCHA_PARALLEL=true runJSTest "$1" $((2*$speedFactor)) $feedsFiles $miscFiles $pluginFiles $clientFiles
 
     # Use TS tests directly because we import server files
     helperFiles=$(findTestFiles ./packages/tests/src/server-helpers)
@@ -130,6 +131,8 @@ elif [ "$1" = "api-5" ]; then
 
     MOCHA_PARALLEL=true runJSTest "$1" $((2*$speedFactor)) $transcodingFiles $runnersFiles
 elif [ "$1" = "external-plugins" ]; then
+    npm run install-dependencies:transcription --workspace=@peertube/tests
+
     npm run build:server
     npm run build:tests
     npm run build:peertube-runner
@@ -145,4 +148,14 @@ elif [ "$1" = "lint" ]; then
     npm run swagger-cli -- validate support/doc/api/openapi.yaml
 
     ( cd client && npm run lint )
+elif [ "$1" = "transcription" ]; then
+    npm run install-dependencies:transcription --workspace=@peertube/tests
+
+    npm run build:server
+    npm run build:tests
+
+    transcriptionFiles=$(findTestFiles ./packages/tests/dist/transcription)
+    transcriptionDevToolsFiles=$(findTestFiles ./packages/tests/dist/transcription-devtools)
+
+    MOCHA_PARALLEL=true runJSTest "$1" $((3*$speedFactor)) $transcriptionFiles $transcriptionDevToolsFiles
 fi

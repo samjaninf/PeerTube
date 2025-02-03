@@ -6,18 +6,20 @@ import { PlaylistMenuItem } from './playlist-menu-item'
 const Component = videojs.getComponent('Component')
 
 class PlaylistMenu extends Component {
-  private menuItems: PlaylistMenuItem[] = []
+  declare private menuItems: PlaylistMenuItem[]
 
-  private readonly userInactiveHandler: () => void
-  private readonly onMouseEnter: () => void
-  private readonly onMouseLeave: () => void
+  declare private readonly userInactiveHandler: () => void
+  declare private readonly onMouseEnter: () => void
+  declare private readonly onMouseLeave: () => void
 
-  private readonly onPlayerCick: (event: Event) => void
+  declare private readonly onPlayerCick: (event: Event) => void
 
-  options_: PlaylistPluginOptions & videojs.ComponentOptions
+  declare options_: PlaylistPluginOptions & videojs.ComponentOptions
 
   constructor (player: videojs.Player, options?: PlaylistPluginOptions & videojs.ComponentOptions) {
     super(player, options)
+
+    this.menuItems = []
 
     this.userInactiveHandler = () => {
       this.close()
@@ -73,7 +75,6 @@ class PlaylistMenu extends Component {
 
     const menu = super.createEl('div', {
       className: 'vjs-playlist-menu',
-      innerHTML: '',
       tabIndex: -1
     })
 
@@ -84,13 +85,13 @@ class PlaylistMenu extends Component {
     const headerLeft = super.createEl('div')
 
     const leftTitle = super.createEl('div', {
-      innerHTML: this.options_.playlist.displayName,
+      innerText: this.options_.playlist.displayName,
       className: 'title'
     })
 
     const playlistChannel = this.options_.playlist.videoChannel
     const leftSubtitle = super.createEl('div', {
-      innerHTML: playlistChannel
+      innerText: playlistChannel
         ? this.player().localize('By {1}', [ playlistChannel.displayName ])
         : '',
       className: 'channel'

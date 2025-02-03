@@ -12,6 +12,8 @@ import { getDevLocale, isOnDevLocale } from '@app/helpers'
 import { CustomModalComponent } from '@app/modal/custom-modal.component'
 import { getCompleteLocale, getKeys, isDefaultLocale, peertubeTranslate } from '@peertube/peertube-core-utils'
 import {
+  ClientDoActionCallback,
+  ClientDoActionName,
   ClientHook,
   ClientHookName,
   PluginClientScope,
@@ -28,6 +30,7 @@ import {
 import { PluginInfo, PluginsManager } from '@root-helpers/plugins-manager'
 import { environment } from '../../../environments/environment'
 import { RegisterClientHelpers } from '../../../types/register-client-option.model'
+import { logger } from '@root-helpers/logger'
 
 type FormFields = {
   video: {
@@ -50,9 +53,15 @@ export class PluginService implements ClientHook {
     video: []
   }
   private settingsScripts: { [ npmName: string ]: RegisterClientSettingsScriptOptions } = {}
-  private clientRoutes: { [ route: string ]: RegisterClientRouteOptions } = {}
+  private clientRoutes: {
+    [ parentRoute in RegisterClientRouteOptions['parentRoute'] ]?: {
+      [ route: string ]: RegisterClientRouteOptions
+    }
+  } = {}
 
   private pluginsManager: PluginsManager
+
+  private actions = new Map<ClientDoActionName, ClientDoActionCallback>()
 
   constructor (
     private authService: AuthService,
@@ -67,6 +76,7 @@ export class PluginService implements ClientHook {
     this.loadTranslations()
 
     this.pluginsManager = new PluginsManager({
+      doAction: this.doAction.bind(this),
       peertubeHelpersFactory: this.buildPeerTubeHelpers.bind(this),
       onFormFields: this.onFormFields.bind(this),
       onSettingsScripts: this.onSettingsScripts.bind(this),
@@ -74,10 +84,18 @@ export class PluginService implements ClientHook {
     })
   }
 
+  addAction (actionName: ClientDoActionName, callback: ClientDoActionCallback) {
+    this.actions.set(actionName, callback)
+  }
+
+  removeAction (actionName: ClientDoActionName) {
+    this.actions.delete(actionName)
+  }
+
   initializePlugins () {
     this.pluginsManager.loadPluginsList(this.server.getHTMLConfig())
 
-    this.pluginsManager.ensurePluginsAreLoaded('common')
+    return this.pluginsManager.ensurePluginsAreLoaded('common')
   }
 
   initializeCustomModal (customModal: CustomModalComponent) {
@@ -126,12 +144,29 @@ export class PluginService implements ClientHook {
     return this.settingsScripts[npmName]
   }
 
-  getRegisteredClientRoute (route: string) {
-    return this.clientRoutes[route]
+  getRegisteredClientRoute (route: string, parentRoute: RegisterClientRouteOptions['parentRoute']) {
+    if (!this.clientRoutes[parentRoute]) {
+      return undefined
+    }
+
+    return this.clientRoutes[parentRoute][route]
+  }
+
+  getAllRegisteredClientRoutesForParent (parentRoute: RegisterClientRouteOptions['parentRoute']) {
+    return this.clientRoutes[parentRoute]
   }
 
   getAllRegisteredClientRoutes () {
     return Object.keys(this.clientRoutes)
+      .map((parentRoute: RegisterClientRouteOptions['parentRoute']) => {
+        return Object.keys(this.clientRoutes[parentRoute])
+          .map(route => {
+            if (parentRoute === '/') return route
+
+            return parentRoute + route
+          })
+      })
+      .flat()
   }
 
   async translateSetting (npmName: string, setting: RegisterClientFormFieldOptions) {
@@ -163,6 +198,18 @@ export class PluginService implements ClientHook {
     return firstValueFrom(obs)
   }
 
+  private doAction (actionName: ClientDoActionName) {
+    if (!this.actions.has(actionName)) {
+      logger.warn(`Plugin tried to do unknown action: ${actionName}`)
+    }
+
+    try {
+      return this.actions.get(actionName)()
+    } catch (err: any) {
+      logger.warn(`Cannot run action ${actionName}`, err)
+    }
+  }
+
   private onFormFields (
     pluginInfo: PluginInfo,
     commonOptions: RegisterClientFormFieldOptions,
@@ -180,11 +227,17 @@ export class PluginService implements ClientHook {
   }
 
   private onClientRoute (options: RegisterClientRouteOptions) {
+    const parentRoute = options.parentRoute || '/'
+
     const route = options.route.startsWith('/')
       ? options.route
       : `/${options.route}`
 
-    this.clientRoutes[route] = options
+    if (!this.clientRoutes[parentRoute]) {
+      this.clientRoutes[parentRoute] = {}
+    }
+
+    this.clientRoutes[parentRoute][route] = options
   }
 
   private buildPeerTubeHelpers (pluginInfo: PluginInfo): RegisterClientHelpers {
@@ -221,6 +274,10 @@ export class PluginService implements ClientHook {
                    )
 
         return firstValueFrom(obs)
+      },
+
+      getUser: () => {
+        return this.authService.getUser()
       },
 
       getServerConfig: () => {

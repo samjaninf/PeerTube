@@ -1,18 +1,48 @@
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, EventEmitter, Input, OnInit, Output, ViewChild } from '@angular/core'
 import { AuthService, Notifier, ServerService } from '@app/core'
-import { Video, VideoService } from '@app/shared/shared-main'
-import { NgbDropdown } from '@ng-bootstrap/ng-bootstrap'
+import { NgbDropdown, NgbDropdownToggle, NgbDropdownMenu, NgbDropdownButtonItem, NgbDropdownItem } from '@ng-bootstrap/ng-bootstrap'
 import { secondsToTime } from '@peertube/peertube-core-utils'
 import { HTMLServerConfig, VideoPlaylistElementType, VideoPlaylistElementUpdate, VideoPrivacy } from '@peertube/peertube-models'
 import { VideoPlaylistElement } from './video-playlist-element.model'
 import { VideoPlaylist } from './video-playlist.model'
 import { VideoPlaylistService } from './video-playlist.service'
+import { TimestampInputComponent } from '../shared-forms/timestamp-input.component'
+import { FormsModule } from '@angular/forms'
+import { PeertubeCheckboxComponent } from '../shared-forms/peertube-checkbox.component'
+import { EditButtonComponent } from '../shared-main/buttons/edit-button.component'
+import { VideoViewsCounterComponent } from '../shared-video/video-views-counter.component'
+import { DateToggleComponent } from '../shared-main/date/date-toggle.component'
+import { VideoThumbnailComponent } from '../shared-thumbnail/video-thumbnail.component'
+import { GlobalIconComponent } from '../shared-icons/global-icon.component'
+import { RouterLink } from '@angular/router'
+import { NgClass, NgIf } from '@angular/common'
+import { Video } from '../shared-main/video/video.model'
+import { VideoService } from '../shared-main/video/video.service'
 
 @Component({
   selector: 'my-video-playlist-element-miniature',
   styleUrls: [ './video-playlist-element-miniature.component.scss' ],
   templateUrl: './video-playlist-element-miniature.component.html',
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  standalone: true,
+  imports: [
+    NgClass,
+    RouterLink,
+    NgIf,
+    GlobalIconComponent,
+    VideoThumbnailComponent,
+    DateToggleComponent,
+    VideoViewsCounterComponent,
+    EditButtonComponent,
+    NgbDropdown,
+    NgbDropdownToggle,
+    NgbDropdownMenu,
+    NgbDropdownButtonItem,
+    NgbDropdownItem,
+    PeertubeCheckboxComponent,
+    FormsModule,
+    TimestampInputComponent
+  ]
 })
 export class VideoPlaylistElementMiniatureComponent implements OnInit {
   @ViewChild('moreDropdown') moreDropdown: NgbDropdown
@@ -24,7 +54,6 @@ export class VideoPlaylistElementMiniatureComponent implements OnInit {
   @Input() rowLink = false
   @Input() accountLink = true
   @Input() position: number // Keep this property because we're in the OnPush change detection strategy
-  @Input() touchScreenEditButton = false
 
   @Output() elementRemoved = new EventEmitter<VideoPlaylistElement>()
 
@@ -50,6 +79,10 @@ export class VideoPlaylistElementMiniatureComponent implements OnInit {
 
   ngOnInit (): void {
     this.serverConfig = this.serverService.getHTMLConfig()
+  }
+
+  getVideoAriaLabel () {
+    return $localize`Watch video ${this.playlistElement.video.name}`
   }
 
   getVideoOwnerDisplayType (element: VideoPlaylistElement) {
@@ -140,8 +173,8 @@ export class VideoPlaylistElementMiniatureComponent implements OnInit {
     const start = playlistElement.startTimestamp
     const stop = playlistElement.stopTimestamp
 
-    const startFormatted = secondsToTime(start, true, ':')
-    const stopFormatted = secondsToTime(stop, true, ':')
+    const startFormatted = secondsToTime({ seconds: start, format: 'full', symbol: ':' })
+    const stopFormatted = secondsToTime({ seconds: stop, format: 'full', symbol: ':' })
 
     if (start === null && stop === null) return ''
 

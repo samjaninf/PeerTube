@@ -1,5 +1,6 @@
 @use '_variables' as *;
 @use '_mixins' as *;
+@use '_form-mixins' as *;
 
 .peertube-select-container {
   @include peertube-select-container(auto);
@@ -8,6 +9,10 @@
 my-peertube-checkbox {
   display: block;
   margin-bottom: 1rem;
+}
+
+my-timestamp-input {
+  width: 100px;
 }
 
 .nav-tabs {
@@ -19,25 +24,22 @@ my-peertube-checkbox {
   min-height: 300px;
 
   input {
-    @include peertube-input-text(100%);
     display: block;
-  }
-}
 
-.captions-header {
-  text-align: end;
-  margin-bottom: 1rem;
+    @include peertube-input-text(100%);
+  }
 }
 
 .caption-entry {
   display: flex;
-  height: 40px;
+  min-height: 40px;
   align-items: center;
+  flex-wrap: wrap;
 
   a.caption-entry-label {
-    @include disable-default-a-behaviour;
+    color: pvar(--fg);
 
-    color: #000;
+    @include disable-default-a-behaviour;
 
     &:hover {
       opacity: 0.8;
@@ -45,33 +47,16 @@ my-peertube-checkbox {
   }
 
   .caption-entry-label {
-    @include margin-right(20px);
-
     font-weight: bold;
     min-width: 100px;
+
+    @include margin-right(20px);
   }
 
   .caption-entry-state {
-    @include margin-right(15px);
-
     min-width: 250px;
 
-    &.caption-entry-state-create {
-      color: #39CC0B;
-    }
-
-    &.caption-entry-state-delete {
-      color: #FF0000;
-    }
-  }
-
-  .caption-entry-edit {
-    @include peertube-button;
-  }
-
-  .caption-entry-delete {
-    @include peertube-button;
-    @include grey-button;
+    @include margin-right(15px);
   }
 }
 
@@ -83,10 +68,10 @@ my-peertube-checkbox {
   text-align: end;
 
   .message-submit {
-    @include margin-right(25px);
-
     display: inline-block;
-    color: pvar(--greyForegroundColor);
+    color: pvar(--fg-300);
+
+    @include margin-right(25px);
   }
 }
 
@@ -96,11 +81,6 @@ p-calendar {
   ::ng-deep {
     .p-calendar {
       width: 100%;
-    }
-
-    .p-inputtext {
-      @include peertube-input-text(100%);
-      color: #000;
     }
   }
 }
@@ -112,9 +92,9 @@ p-calendar {
   grid-gap: 30px;
 }
 
-.button-file {
-  @include peertube-button-file(max-content);
-  @include orange-button;
+.col-video-edit {
+  max-width: 100%;
+  min-width: 1px;
 }
 
 .hide-chapter-label {
@@ -129,7 +109,8 @@ p-calendar {
   column-gap: 1rem;
 
   .position {
-    height: 31px;
+    height: 38px;
+    min-width: 16px;
     display: flex;
     align-items: center;
   }

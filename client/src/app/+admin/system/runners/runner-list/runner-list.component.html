@@ -1,15 +1,3 @@
-<h1 class="d-flex justify-content-between">
-  <span class="text-nowrap me-2">
-    <my-global-icon iconName="codesandbox" aria-hidden="true"></my-global-icon>
-    <ng-container i18n>Remote runners</ng-container>
-  </span>
-
-  <a routerLink="/admin/system/runners/registration-tokens-list" class="peertube-button-link peertube-button-icon grey-button">
-    <my-global-icon iconName="cog" aria-hidden="true"></my-global-icon>
-    <ng-container i18n>Runner registration tokens</ng-container>
-  </a>
-</h1>
-
 <p-table
   [value]="runners" [paginator]="totalRecords > 0" [totalRecords]="totalRecords" [rows]="rowsPerPage" [first]="pagination.start"
   [rowsPerPageOptions]="rowsPerPageOptions" [sortField]="sort.field" [sortOrder]="sort.order"
@@ -18,12 +6,14 @@
 >
   <ng-template pTemplate="header">
     <tr>
-      <th style="width: 120px;"></th>
-      <th i18n>Name</th>
-      <th i18n>Description</th>
-      <th i18n>IP</th>
-      <th i18n>Last contact</th>
-      <th style="width: 150px;" i18n pSortableColumn="createdAt">Created <p-sortIcon field="createdAt"></p-sortIcon></th>
+      <th scope="col" style="width: 120px;">
+        <span i18n class="visually-hidden">Actions</span>
+      </th>
+      <th scope="col" i18n>Name</th>
+      <th scope="col" i18n>Description</th>
+      <th scope="col" i18n>IP</th>
+      <th scope="col" i18n>Last contact</th>
+      <th scope="col" style="width: 150px;" i18n [ngbTooltip]="sortTooltip" container="body" pSortableColumn="createdAt">Created <p-sortIcon field="createdAt"></p-sortIcon></th>
     </tr>
   </ng-template>
 
@@ -32,7 +22,7 @@
       <td class="action-cell">
         <my-action-dropdown
           placement="bottom-right top-right left auto" container="body"
-          i18n-label label="Actions" [actions]="actions" [entry]="runner"
+          i18n-label label="Actions" [actions]="actions" [entry]="runner" buttonSize="small"
         ></my-action-dropdown>
       </td>
 
@@ -42,9 +32,9 @@
 
       <td>{{ runner.ip }}</td>
 
-      <td>{{ runner.lastContact | date: 'short' }}</td>
+      <td>{{ runner.lastContact | ptDate: 'short' }}</td>
 
-      <td>{{ runner.createdAt | date: 'short' }}</td>
+      <td>{{ runner.createdAt | ptDate: 'short' }}</td>
     </tr>
   </ng-template>
 

@@ -10,18 +10,35 @@ export interface ActivityIconObject {
   type: 'Image'
   url: string
   mediaType: string
-  width?: number
-  height?: number
+  width: number
+  height: number | null
+}
+
+// ---------------------------------------------------------------------------
+
+export type ActivityVideoUrlObjectAttachment = {
+  type: 'PropertyValue'
+  name: 'ffprobe_codec_type'
+  value: 'video' | 'audio'
+} | {
+  type: 'PropertyValue'
+  name: 'peertube_format_flag'
+  value: 'web-video' | 'fragmented'
 }
 
 export type ActivityVideoUrlObject = {
   type: 'Link'
-  mediaType: 'video/mp4' | 'video/webm' | 'video/ogg'
+  mediaType: 'video/mp4' | 'video/webm' | 'video/ogg' | 'audio/mp4'
   href: string
   height: number
+  width: number | null
   size: number
   fps: number
+
+  attachment: ActivityVideoUrlObjectAttachment[]
 }
+
+// ---------------------------------------------------------------------------
 
 export type ActivityPlaylistSegmentHashesObject = {
   type: 'Link'
@@ -35,6 +52,7 @@ export type ActivityVideoFileMetadataUrlObject = {
   rel: [ 'metadata', any ]
   mediaType: 'application/json'
   height: number
+  width: number | null
   href: string
   fps: number
 }
@@ -63,6 +81,8 @@ export type ActivityBitTorrentUrlObject = {
   mediaType: 'application/x-bittorrent' | 'application/x-bittorrent;x-scheme-handler/magnet'
   href: string
   height: number
+  width: number | null
+  fps: number | null
 }
 
 export type ActivityMagnetUrlObject = {
@@ -70,6 +90,8 @@ export type ActivityMagnetUrlObject = {
   mediaType: 'application/x-bittorrent;x-scheme-handler/magnet'
   href: string
   height: number
+  width: number | null
+  fps: number | null
 }
 
 export type ActivityHtmlUrlObject = {

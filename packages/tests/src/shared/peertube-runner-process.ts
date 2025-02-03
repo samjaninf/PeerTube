@@ -1,8 +1,9 @@
-import { ChildProcess, fork, ForkOptions } from 'child_process'
-import execa from 'execa'
-import { join } from 'path'
+import { RunnerJobType } from '@peertube/peertube-models'
 import { root } from '@peertube/peertube-node-utils'
 import { PeerTubeServer } from '@peertube/peertube-server-commands'
+import { ChildProcess, fork, ForkOptions } from 'child_process'
+import { execaNode } from 'execa'
+import { join } from 'path'
 
 export class PeerTubeRunnerProcess {
   private app?: ChildProcess
@@ -12,12 +13,18 @@ export class PeerTubeRunnerProcess {
   }
 
   runServer (options: {
+    jobType?: RunnerJobType
     hideLogs?: boolean // default true
   } = {}) {
-    const { hideLogs = true } = options
+    const { jobType, hideLogs = true } = options
 
     return new Promise<void>((res, rej) => {
       const args = [ 'server', '--verbose', ...this.buildIdArg() ]
+
+      if (jobType) {
+        args.push('--enable-job')
+        args.push(jobType)
+      }
 
       const forkOptions: ForkOptions = {
         detached: false,
@@ -26,6 +33,10 @@ export class PeerTubeRunnerProcess {
       }
 
       this.app = fork(this.getRunnerPath(), args, forkOptions)
+
+      this.app.stderr.on('data', data => {
+        console.error(data.toString())
+      })
 
       this.app.stdout.on('data', data => {
         const str = data.toString() as string
@@ -78,13 +89,27 @@ export class PeerTubeRunnerProcess {
     return stdout
   }
 
+  // ---------------------------------------------------------------------------
+
+  gracefulShutdown () {
+    const args = [ 'graceful-shutdown', ...this.buildIdArg() ]
+
+    return this.runCommand(this.getRunnerPath(), args)
+  }
+
+  hasCorrectlyExited () {
+    return this.app.exitCode === 0
+  }
+
   kill () {
-    if (!this.app) return
+    if (!this.app || this.app.exitCode !== null) return
 
     process.kill(this.app.pid)
 
     this.app = null
   }
+
+  // ---------------------------------------------------------------------------
 
   getId () {
     return 'test-' + this.server.internalServerNumber
@@ -99,6 +124,6 @@ export class PeerTubeRunnerProcess {
   }
 
   private runCommand (path: string, args: string[]) {
-    return execa.node(path, args, { env: { ...process.env, NODE_OPTIONS: '' } })
+    return execaNode(path, args, { env: { ...process.env, NODE_OPTIONS: '' } })
   }
 }

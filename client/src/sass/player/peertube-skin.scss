@@ -4,9 +4,9 @@
 @use './_player-variables' as *;
 
 body {
-  --embedForegroundColor: #{$primary-foreground-color};
+  --embed-foreground-color: #{$primary-foreground-color};
 
-  --embedBigPlayBackgroundColor: #{$primary-background-color};
+  --embed-big-play-background-color: #{$primary-background-color};
 }
 
 @mixin big-play-button-triangle-size($triangle-size) {
@@ -18,7 +18,7 @@ body {
 
 .video-js.vjs-peertube-skin {
   font-size: $font-size;
-  color: pvar(--embedForegroundColor);
+  color: pvar(--embed-fg);
 
   &.disabled {
     cursor: default;
@@ -37,8 +37,6 @@ body {
     $big-play-width: 1.2em;
     $big-play-height: 1.2em;
 
-    @include margin-left(-(math.div($big-play-width, 2)));
-
     outline: 0;
     font-size: 6em;
 
@@ -53,21 +51,23 @@ body {
     margin-top: -(math.div($big-play-height, 2));
     transition: 0.2s background-color;
 
+    @include margin-left(-(math.div($big-play-width, 2)));
+
     &::-moz-focus-inner {
       border: 0;
       padding: 0;
     }
 
     .vjs-icon-placeholder::before {
-      @include big-play-button-triangle-size(45px);
-
       content: '';
       background-image: url('#{$assets-path}/player/images/big-play-button.svg');
+
+      @include big-play-button-triangle-size(45px);
     }
 
-    &.focus-visible,
+    &:focus-visible,
     &:hover {
-      background-color: var(--mainColor, #696969);
+      background-color: pvar(--primary);
     }
   }
 
@@ -100,47 +100,18 @@ body {
     }
   }
 
-  .vjs-control-bar,
-  .vjs-big-play-button,
-  .vjs-settings-dialog {
-    background-color: pvar(--embedBigPlayBackgroundColor);
+  .vjs-big-play-button {
+    background-color: pvar(--embed-big-play-bg);
+  }
+
+  .vjs-settings-dialog,
+  .vjs-control-bar {
+    background-color: $primary-background-color;
   }
 
   .vjs-poster {
     outline: 0;
-  }
-
-  @media screen and (max-width: $screen-width-750) {
-    .vjs-big-play-button {
-      font-size: 5em;
-      border-width: 3px;
-
-      .vjs-icon-placeholder::before {
-        @include big-play-button-triangle-size(32px);
-      }
-    }
-  }
-
-  @media screen and (max-width: $screen-width-570) {
-    .vjs-big-play-button {
-      font-size: 4.5em;
-      border-width: 2.5px;
-
-      .vjs-icon-placeholder::before {
-        @include big-play-button-triangle-size(27px);
-      }
-    }
-  }
-
-  @media screen and (max-width: $screen-width-350) {
-    .vjs-big-play-button {
-      font-size: 3em;
-      border-width: 2px;
-
-      .vjs-icon-placeholder::before {
-        @include big-play-button-triangle-size(20px);
-      }
-    }
+    background-size: cover;
   }
 
   // Theater mode is enabled
@@ -223,5 +194,32 @@ body {
 .vjs-error.vjs-error-display-enabled {
   .vjs-custom-error-display {
     display: block;
+  }
+}
+
+
+// ---------------------------------------------------------------------------
+// Custom media queries
+// ---------------------------------------------------------------------------
+
+.video-js.vjs-peertube-skin.vjs-size-570 {
+  .vjs-big-play-button {
+    font-size: 5em;
+    border-width: 3px;
+
+    .vjs-icon-placeholder::before {
+      @include big-play-button-triangle-size(32px);
+    }
+  }
+}
+
+.video-js.vjs-peertube-skin.vjs-size-350 {
+  .vjs-big-play-button {
+    font-size: 3em;
+    border-width: 2px;
+
+    .vjs-icon-placeholder::before {
+      @include big-play-button-triangle-size(20px);
+    }
   }
 }

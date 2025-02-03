@@ -3,7 +3,7 @@
 import { decode } from 'querystring'
 import request from 'supertest'
 import { URL } from 'url'
-import { pick } from '@peertube/peertube-core-utils'
+import { pick, queryParamsToObject } from '@peertube/peertube-core-utils'
 import { HttpStatusCode, HttpStatusCodeType } from '@peertube/peertube-models'
 import { buildAbsoluteFixturePath } from '@peertube/peertube-node-utils'
 
@@ -23,23 +23,33 @@ export type CommonRequestParams = {
   expectedStatus?: HttpStatusCodeType
 }
 
-function makeRawRequest (options: {
+export function makeRawRequest (options: {
   url: string
   token?: string
   expectedStatus?: HttpStatusCodeType
+  responseType?: string
   range?: string
   query?: { [ id: string ]: string }
   method?: 'GET' | 'POST'
+  accept?: string
   headers?: { [ name: string ]: string }
+  redirects?: number
 }) {
-  const { host, protocol, pathname } = new URL(options.url)
+  const { host, protocol, pathname, searchParams } = new URL(options.url)
 
   const reqOptions = {
     url: `${protocol}//${host}`,
     path: pathname,
+
     contentType: undefined,
 
-    ...pick(options, [ 'expectedStatus', 'range', 'token', 'query', 'headers' ])
+    query: {
+      ...(options.query || {}),
+
+      ...queryParamsToObject(searchParams)
+    },
+
+    ...pick(options, [ 'expectedStatus', 'range', 'token', 'headers', 'responseType', 'accept', 'redirects' ])
   }
 
   if (options.method === 'POST') {
@@ -49,7 +59,16 @@ function makeRawRequest (options: {
   return makeGetRequest(reqOptions)
 }
 
-function makeGetRequest (options: CommonRequestParams & {
+export const makeFileRequest = (url: string) => {
+  return makeRawRequest({
+    url,
+    responseType: 'arraybuffer',
+    redirects: 1,
+    expectedStatus: HttpStatusCode.OK_200
+  })
+}
+
+export function makeGetRequest (options: CommonRequestParams & {
   query?: any
   rawQuery?: string
 }) {
@@ -61,7 +80,7 @@ function makeGetRequest (options: CommonRequestParams & {
   return buildRequest(req, { contentType: 'application/json', expectedStatus: HttpStatusCode.BAD_REQUEST_400, ...options })
 }
 
-function makeHTMLRequest (url: string, path: string) {
+export function makeHTMLRequest (url: string, path: string) {
   return makeGetRequest({
     url,
     path,
@@ -70,7 +89,9 @@ function makeHTMLRequest (url: string, path: string) {
   })
 }
 
-function makeActivityPubGetRequest (url: string, path: string, expectedStatus: HttpStatusCodeType = HttpStatusCode.OK_200) {
+// ---------------------------------------------------------------------------
+
+export function makeActivityPubGetRequest (url: string, path: string, expectedStatus: HttpStatusCodeType = HttpStatusCode.OK_200) {
   return makeGetRequest({
     url,
     path,
@@ -79,7 +100,17 @@ function makeActivityPubGetRequest (url: string, path: string, expectedStatus: H
   })
 }
 
-function makeDeleteRequest (options: CommonRequestParams & {
+export function makeActivityPubRawRequest (url: string, expectedStatus: HttpStatusCodeType = HttpStatusCode.OK_200) {
+  return makeRawRequest({
+    url,
+    expectedStatus,
+    accept: 'application/activity+json,text/html;q=0.9,\\*/\\*;q=0.8'
+  })
+}
+
+// ---------------------------------------------------------------------------
+
+export function makeDeleteRequest (options: CommonRequestParams & {
   query?: any
   rawQuery?: string
 }) {
@@ -91,7 +122,7 @@ function makeDeleteRequest (options: CommonRequestParams & {
   return buildRequest(req, { accept: 'application/json', expectedStatus: HttpStatusCode.BAD_REQUEST_400, ...options })
 }
 
-function makeUploadRequest (options: CommonRequestParams & {
+export function makeUploadRequest (options: CommonRequestParams & {
   method?: 'POST' | 'PUT'
 
   fields: { [ fieldName: string ]: any }
@@ -110,16 +141,27 @@ function makeUploadRequest (options: CommonRequestParams & {
     if (!value) return
 
     if (Array.isArray(value)) {
-      req.attach(attach, buildAbsoluteFixturePath(value[0]), value[1])
+      req.attach(
+        attach,
+        value[0] instanceof Buffer
+          ? value[0]
+          : buildAbsoluteFixturePath(value[0]),
+        value[1]
+      )
     } else {
-      req.attach(attach, buildAbsoluteFixturePath(value))
+      req.attach(
+        attach,
+        value instanceof Buffer
+          ? value
+          : buildAbsoluteFixturePath(value)
+      )
     }
   })
 
   return req
 }
 
-function makePostBodyRequest (options: CommonRequestParams & {
+export function makePostBodyRequest (options: CommonRequestParams & {
   fields?: { [ fieldName: string ]: any }
 }) {
   const req = request(options.url).post(options.path)
@@ -128,7 +170,7 @@ function makePostBodyRequest (options: CommonRequestParams & {
   return buildRequest(req, { accept: 'application/json', expectedStatus: HttpStatusCode.BAD_REQUEST_400, ...options })
 }
 
-function makePutBodyRequest (options: {
+export function makePutBodyRequest (options: {
   url: string
   path: string
   token?: string
@@ -142,21 +184,36 @@ function makePutBodyRequest (options: {
   return buildRequest(req, { accept: 'application/json', expectedStatus: HttpStatusCode.BAD_REQUEST_400, ...options })
 }
 
-function decodeQueryString (path: string) {
+// ---------------------------------------------------------------------------
+
+export async function getRedirectionUrl (url: string, token?: string) {
+  const res = await makeRawRequest({
+    url,
+    token,
+    redirects: 0,
+    expectedStatus: HttpStatusCode.FOUND_302
+  })
+
+  return res.headers['location']
+}
+
+// ---------------------------------------------------------------------------
+
+export function decodeQueryString (path: string) {
   return decode(path.split('?')[1])
 }
 
 // ---------------------------------------------------------------------------
 
-function unwrapBody <T> (test: request.Test): Promise<T> {
+export function unwrapBody <T> (test: request.Test): Promise<T> {
   return test.then(res => res.body)
 }
 
-function unwrapText (test: request.Test): Promise<string> {
+export function unwrapText (test: request.Test): Promise<string> {
   return test.then(res => res.text)
 }
 
-function unwrapBodyOrDecodeToJSON <T> (test: request.Test): Promise<T> {
+export function unwrapBodyOrDecodeToJSON <T> (test: request.Test): Promise<T> {
   return test.then(res => {
     if (res.body instanceof Buffer) {
       try {
@@ -180,28 +237,12 @@ function unwrapBodyOrDecodeToJSON <T> (test: request.Test): Promise<T> {
   })
 }
 
-function unwrapTextOrDecode (test: request.Test): Promise<string> {
+export function unwrapTextOrDecode (test: request.Test): Promise<string> {
   return test.then(res => res.text || new TextDecoder().decode(res.body))
 }
 
 // ---------------------------------------------------------------------------
-
-export {
-  makeHTMLRequest,
-  makeGetRequest,
-  decodeQueryString,
-  makeUploadRequest,
-  makePostBodyRequest,
-  makePutBodyRequest,
-  makeDeleteRequest,
-  makeRawRequest,
-  makeActivityPubGetRequest,
-  unwrapBody,
-  unwrapTextOrDecode,
-  unwrapBodyOrDecodeToJSON,
-  unwrapText
-}
-
+// Private
 // ---------------------------------------------------------------------------
 
 function buildRequest (req: request.Test, options: CommonRequestParams) {

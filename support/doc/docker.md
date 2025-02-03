@@ -136,7 +136,7 @@ See the production guide ["What now" section](https://docs.joinpeertube.org/inst
 ## Upgrade
 
 ::: warning
-Check the changelog (in particular the *IMPORTANT NOTES* section):** https://github.com/Chocobozzz/PeerTube/blob/develop/CHANGELOG.md
+Check the changelog (in particular the *IMPORTANT NOTES* section): https://github.com/Chocobozzz/PeerTube/blob/develop/CHANGELOG.md
 :::
 
 Pull the latest images:
@@ -150,6 +150,13 @@ Stop, delete the containers and internal volumes (to invalidate static client fi
 
 ```shell
 docker compose down -v
+```
+
+Update the nginx configuration:
+
+```shell
+mv docker-volume/nginx/peertube docker-volume/nginx/peertube.bak
+curl https://raw.githubusercontent.com/Chocobozzz/PeerTube/master/support/nginx/peertube > docker-volume/nginx/peertube
 ```
 
 Rerun PeerTube:
@@ -170,4 +177,4 @@ docker build . -f ./support/docker/production/Dockerfile.bookworm
 
 ### Development
 
-We don't have a Docker image for development. See [the CONTRIBUTING guide](https://github.com/Chocobozzz/PeerTube/blob/develop/.github/CONTRIBUTING.md#develop) for more information on how you can hack PeerTube!
+We don't have a Docker image for development. See [the CONTRIBUTING guide](https://docs.joinpeertube.org/contribute/getting-started#develop) for more information on how you can hack PeerTube!

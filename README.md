@@ -26,33 +26,19 @@ Be part of a network of multiple small federated, interoperable video hosting pr
   </a>
 </p>
 
-<p align="center">
-  <strong>Client</strong>
+<div align="center">
+  <a href="https://github.com/Chocobozzz/PeerTube/actions?query=workflow%3A%22Test%22+branch%3Adevelop">
+    <img src="https://github.com/Chocobozzz/PeerTube/workflows/Test/badge.svg" alt="GitHub Test Status">
+  </a>
 
-  <br />
-
-  <a href="https://automate.browserstack.com/public-build/ZEZqamJQUXFQd1l3cFp3QmxLSVVwdjBGZjNGc3J2M09INFpka296em9VYz0tLUowWVdoemxkY1hBOU9aZzNlY1htZ3c9PQ==--68e0184ce76481d36559d681d9cddc68235ff536">
-    <img src="https://automate.browserstack.com/badge.svg?badge_key=ZEZqamJQUXFQd1l3cFp3QmxLSVVwdjBGZjNGc3J2M09INFpka296em9VYz0tLUowWVdoemxkY1hBOU9aZzNlY1htZ3c9PQ==--68e0184ce76481d36559d681d9cddc68235ff536"/>
+  <a href="https://automate.browserstack.com/public-build/d0ZMeGpSUFRjaUpDNnN3NUdKY1l2TnNpTGVJaUI0bm9hYkNxMTRtQ1lHTT0tLVZQa2crbFB1c2RDZUl1Y1Blck02SFE9PQ==--5f956d6857c50e06a0b7b1fe405fb93d0f2d0e11%">
+    <img src="https://automate.browserstack.com/badge.svg?badge_key=d0ZMeGpSUFRjaUpDNnN3NUdKY1l2TnNpTGVJaUI0bm9hYkNxMTRtQ1lHTT0tLVZQa2crbFB1c2RDZUl1Y1Blck02SFE9PQ==--5f956d6857c50e06a0b7b1fe405fb93d0f2d0e11%" alt="BrowserStack Status">
   </a>
 
   <a href="https://weblate.framasoft.org/projects/peertube/angular/">
-    <img src="https://weblate.framasoft.org/widgets/peertube/-/angular/svg-badge.svg"/>
+    <img src="https://weblate.framasoft.org/widgets/peertube/-/angular/svg-badge.svg" alt="Weblate Status">
   </a>
-</p>
-
-<p align="center">
-  <strong>Server</strong>
-
-  <br />
-
-  <a href="https://github.com/Chocobozzz/PeerTube/actions?query=workflow%3A%22Test+Suite%22+branch%3Adevelop">
-    <img alt="test suite status" src="https://github.com/Chocobozzz/PeerTube/workflows/Test%20Suite/badge.svg" />
-  </a>
-
-  <a href="https://standardjs.com/">
-    <img src="https://img.shields.io/badge/code%20style-standard-brightgreen.svg" alt="JavaScript Style Guide" />
-  </a>
-</p>
+</div>
 
 <br />
 
@@ -130,7 +116,7 @@ Content creators can get help from their viewers in the simplest way possible: a
 You don't need to be a programmer to help!
 
 You can give us your feedback, report bugs, help us translate PeerTube, write documentation, and more. Check out the [contributing
-guide](https://github.com/Chocobozzz/PeerTube/blob/develop/.github/CONTRIBUTING.md) to know how, it takes less than 2 minutes to get started. :wink:
+guide](https://docs.joinpeertube.org/contribute/getting-started) to know how, it takes less than 2 minutes to get started. :wink:
 
 You can also join the cheerful bunch that makes our community:
 
@@ -186,7 +172,7 @@ See our [ActivityPub documentation](https://docs.joinpeertube.org/api/activitypu
 
 ### Code
 
-Copyright (C) 2015-2023 PeerTube Contributors (see [CREDITS.md](/CREDITS.md))
+Copyright (C) 2015-2024 PeerTube Contributors (see [CREDITS.md](/CREDITS.md))
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published

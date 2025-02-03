@@ -1,5 +1,5 @@
 import { expect } from 'chai'
-import { wait } from '@peertube/peertube-core-utils'
+import { arrayify, wait } from '@peertube/peertube-core-utils'
 import { JobState, JobType, RunnerJobState } from '@peertube/peertube-models'
 import { PeerTubeServer } from './server.js'
 
@@ -16,10 +16,7 @@ async function waitJobs (
     ? parseInt(process.env.NODE_PENDING_JOB_WAIT, 10)
     : 250
 
-  let servers: PeerTubeServer[]
-
-  if (Array.isArray(serversArg) === false) servers = [ serversArg as PeerTubeServer ]
-  else servers = serversArg as PeerTubeServer[]
+  const servers = arrayify(serversArg)
 
   const states: JobState[] = [ 'waiting', 'active' ]
   if (!skipDelayed) states.push('delayed')
@@ -32,10 +29,9 @@ async function waitJobs (
 
     // Check if each server has pending request
     for (const server of servers) {
-      if (process.env.DEBUG) console.log('Checking ' + server.url)
+      if (process.env.DEBUG) console.log(`${new Date().toISOString()} - Checking ${server.url}`)
 
       for (const state of states) {
-
         const jobPromise = server.jobs.list({
           state,
           start: 0,
@@ -48,7 +44,7 @@ async function waitJobs (
               pendingRequests = true
 
               if (process.env.DEBUG) {
-                console.log(jobs)
+                console.log(`${new Date().toISOString()}`, jobs)
               }
             }
           })
@@ -62,7 +58,7 @@ async function waitJobs (
             pendingRequests = true
 
             if (process.env.DEBUG) {
-              console.log('AP messages waiting: ' + obj.activityPubMessagesWaiting)
+              console.log(`${new Date().toISOString()} - AP messages waiting: ${obj.activityPubMessagesWaiting}`)
             }
           }
         })
@@ -76,7 +72,7 @@ async function waitJobs (
                 pendingRequests = true
 
                 if (process.env.DEBUG) {
-                  console.log(job)
+                  console.log(`${new Date().toISOString()}`, job)
                 }
               }
             }

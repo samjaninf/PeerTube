@@ -2,8 +2,8 @@
   <div class="modal-header">
     <h4 i18n class="modal-title">Share</h4>
 
-    <button class="border-0 p-0" (click)="hide()">
-      <my-global-icon iconName="cross" aria-label="Close" role="button" ></my-global-icon>
+    <button class="border-0 p-0" title="Close this modal" i18n-title (click)="hide()">
+      <my-global-icon iconName="cross"></my-global-icon>
     </button>
   </div>
 
@@ -11,15 +11,15 @@
   <div class="modal-body">
 
     <div class="playlist" *ngIf="playlist">
-      <h5 i18n *ngIf="video">Share the playlist</h5>
+      <h5 *ngIf="video" i18n class="text-center mb-4">Share the playlist</h5>
 
-      <div *ngIf="isPrivatePlaylist()" class="alert-private alert alert-warning">
+      <my-alert *ngIf="isPrivatePlaylist()" class="alert-private" type="warning">
         <div i18n>This playlist is private so you won't be able to share it with external users</div>
 
-        <a i18n class="peertube-button-link orange-button" [routerLink]="[ '/my-library/video-playlists/update', playlist.uuid ]" target="_blank" rel="noopener noreferrer">
+        <a i18n class="peertube-button-link primary-button" [routerLink]="[ '/my-library/video-playlists/update', playlist.shortUUID ]" target="_blank" rel="noopener noreferrer">
           Update playlist privacy
         </a>
-      </div>
+      </my-alert>
 
       <div ngbNav #nav="ngbNav" class="nav-tabs" [(activeId)]="activePlaylistId">
 
@@ -28,7 +28,10 @@
 
           <ng-template ngbNavContent>
             <div class="nav-content">
-              <my-input-text [value]="playlistUrl" [withToggle]="false" [withCopy]="true" [show]="true" [readonly]="true"></my-input-text>
+              <my-input-text
+                inputId="playlist-url" i18n-ariaLabel ariaLabel="Playlist URL"
+                [value]="playlistUrl" [withToggle]="false" [withCopy]="true" [show]="true" [readonly]="true"
+              ></my-input-text>
             </div>
           </ng-template>
         </ng-container>
@@ -49,13 +52,14 @@
           <ng-template ngbNavContent>
             <div class="nav-content">
               <my-input-text
+                inputId="playlist-embed-url" i18n-ariaLabel ariaLabel="Playlist embed URL"
                 [value]="customizations.onlyEmbedUrl ? playlistEmbedUrl : playlistEmbedHTML" (change)="onUpdate()"
                 [withToggle]="false" [withCopy]="true" [show]="true" [readonly]="true"
               ></my-input-text>
 
-              <div i18n *ngIf="notSecure()" class="alert alert-warning">
+              <my-alert i18n *ngIf="notSecure()" type="warning" class="mt-3">
                 The url is not secured (no HTTPS), so the embed video won't work on HTTPS websites (web browsers block non secured HTTP requests on HTTPS websites).
-              </div>
+              </my-alert>
 
               <div class="embed" [innerHTML]="playlistEmbedSafeHTML"></div>
             </div>
@@ -97,19 +101,19 @@
 
 
     <div class="video" *ngIf="video">
-      <h5 *ngIf="playlist" i18n>Share the video</h5>
+      <h5 *ngIf="playlist" i18n class="text-center mb-4">Share the video</h5>
 
-      <div *ngIf="isPrivateVideo()" class="alert-private alert alert-warning">
+      <my-alert *ngIf="isPrivateVideo()" class="alert-private" type="warning">
         <div i18n>This video is private so you won't be able to share it with external users</div>
 
-        <a i18n class="peertube-button-link orange-button" [routerLink]="[ '/videos/', 'update', video.shortUUID ]" target="_blank" rel="noopener noreferrer">
+        <a i18n class="peertube-button-link primary-button mt-3" [routerLink]="[ '/videos/', 'update', video.shortUUID ]" target="_blank" rel="noopener noreferrer">
           Update video privacy
         </a>
-      </div>
+      </my-alert>
 
-      <div i18n *ngIf="isPasswordProtectedVideo()" class="alert-private alert alert-warning">
+      <my-alert i18n *ngIf="isPasswordProtectedVideo()" class="alert-private" type="warning">
         This video is password protected, please note that recipients will require the corresponding password to access the content.
-      </div>
+      </my-alert>
 
       <div ngbNav #nav="ngbNav" class="nav-tabs" [(activeId)]="activeVideoId">
 
@@ -118,7 +122,10 @@
 
           <ng-template ngbNavContent>
             <div class="nav-content">
-              <my-input-text [value]="videoUrl" [withToggle]="false" [withCopy]="true" [show]="true" [readonly]="true"></my-input-text>
+              <my-input-text
+                inputId="video-url" i18n-ariaLabel ariaLabel="Video URL"
+                [value]="videoUrl" [withToggle]="false" [withCopy]="true" [show]="true" [readonly]="true"
+              ></my-input-text>
             </div>
           </ng-template>
         </ng-container>
@@ -139,13 +146,14 @@
           <ng-template ngbNavContent>
             <div class="nav-content">
               <my-input-text
+                inputId="video-embed-url" i18n-ariaLabel ariaLabel="Video embed URL"
                 [value]="customizations.onlyEmbedUrl ? videoEmbedUrl : videoEmbedHTML" (ngModelChange)="onUpdate()"
                 [withToggle]="false" [withCopy]="true" [show]="true" [readonly]="true"
               ></my-input-text>
 
-              <div i18n *ngIf="notSecure()" class="alert alert-warning">
+              <my-alert i18n *ngIf="notSecure()" type="warning" class="mt-3">
                 The url is not secured (no HTTPS), so the embed video won't work on HTTPS websites (web browsers block non secured HTTP requests on HTTPS websites).
-              </div>
+              </my-alert>
 
               <div class="embed" [innerHTML]="videoEmbedSafeHTML"></div>
             </div>
@@ -178,19 +186,28 @@
             i18n-labelText labelText="Auto select subtitle"
           ></my-peertube-checkbox>
 
-          <div class="peertube-select-container" [ngClass]="{ disabled: !customizations.subtitleCheckbox }">
+          <div class="peertube-select-container">
             <select [(ngModel)]="customizations.subtitle" [disabled]="!customizations.subtitleCheckbox" class="form-control">
               <option *ngFor="let caption of videoCaptions" [value]="caption.language.id">{{ caption.language.label }}</option>
             </select>
           </div>
         </div>
 
-        <div class="form-group" *ngIf="isInVideoEmbedTab()">
+        @if (isInVideoEmbedTab()) {
+        <div class="form-group">
           <my-peertube-checkbox
             inputName="onlyEmbedUrl" [(ngModel)]="customizations.onlyEmbedUrl"
             i18n-labelText labelText="Only display embed URL"
           ></my-peertube-checkbox>
         </div>
+
+          <div class="form-group">
+            <my-peertube-checkbox
+              inputName="responsive" [(ngModel)]="customizations.responsive"
+              i18n-labelText labelText="Responsive embed"
+            ></my-peertube-checkbox>
+          </div>
+        }
 
         <my-plugin-placeholder pluginId="share-modal-video-settings"></my-plugin-placeholder>
 
@@ -239,13 +256,6 @@
           </div>
 
           <ng-container *ngIf="isInVideoEmbedTab()">
-            <div class="form-group">
-              <my-peertube-checkbox
-                inputName="responsive" [(ngModel)]="customizations.responsive"
-                i18n-labelText labelText="Responsive embed"
-              ></my-peertube-checkbox>
-            </div>
-
             <div class="form-group">
               <my-peertube-checkbox
                 inputName="title" [(ngModel)]="customizations.title"
