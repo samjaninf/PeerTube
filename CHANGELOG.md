@@ -1,6 +1,6 @@
 # Changelog
 
-## v7.3.0-rc.1
+## v7.3.0
 
 ### IMPORTANT NOTES
 
@@ -12,6 +12,7 @@
 
 ### Plugins/Themes/Embed API
 
+  * **Breaking change** Plugin and themes must use `:root` CSS selector instead of `body` to inject CSS variables
   * Add server API (https://docs.joinpeertube.org/api/plugins):
     * Support `externalRedirectUri` for `registerExternalAuth` so PeerTube redirects users on another URL set by the plugin
     * If your plugin uses `filter:email.template-path.result` server hook: emails now use Handlebars template engine instead of Pug template engine
@@ -61,6 +62,12 @@
   * Prevent metric warning for redundancy gauge
   * Fix disabling *Wait transcoding* checkbox
   * Correctly import new elements of a playlist in channel synchronization
+  * Fix overflow in discover page
+  * Fix restoring scroll position when going back in the web browser on the homepage set by the admin
+  * Fill video support on channel sync
+  * Respect instance default privacy setting when publishing imports and lives
+  * Remove useless help for live transcoding
+  * Fix RTL margins on some components
 
 
 ## v7.2.3
